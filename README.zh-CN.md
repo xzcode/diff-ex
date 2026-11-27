@@ -29,6 +29,28 @@
 
 双向同步对单侧文件进行补齐；两侧同名文件内容不同会保留为冲突，不猜测覆盖方向。首版没有历史同步基线，不能自动判定哪一侧是用户希望保留的新版本。符号链接、特殊文件以及文件/目录类型冲突不会自动跟随或替换。
 
+## 界面截图
+
+以下为 UI 验证工作流截取的生产版浏览器预览实图。桌面版使用相同界面，并提供原生文件操作与 Rust 引擎。
+
+![可编辑文本对比](docs/screenshots/text-comparison.png)
+
+![JSON 结构化对比](docs/screenshots/structured-comparison.png)
+
+[首页](docs/screenshots/overview.png) · [柔和浅色主题与简体中文](docs/screenshots/light-chinese.png)
+
+## 获取安装包
+
+打开 [GitHub Actions](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml) 中成功完成的 `master` 构建，在页面的 **Artifacts** 区域下载对应平台的产物。下载工作流产物需要登录 GitHub。
+
+| 平台 | 产物名称 | 包含文件 |
+| --- | --- | --- |
+| Windows x64 | `diff-ex-windows-x64` | NSIS `.exe` 安装程序、`.msi` |
+| macOS Intel / Apple Silicon | `diff-ex-macos-universal` | 通用架构 `.dmg`、打包后的 `.app` |
+| Linux x64 | `diff-ex-linux-x64` | `.deb`、`.AppImage` |
+
+当前提供开发构建；版本标签触发的构建在验证及三平台打包全部成功后发布到 [Releases](https://github.com/xzcode/diff-ex/releases)。实际构建和验证记录见[交接文档](docs/HANDOFF_2026-11-27.md)。
+
 ## 开发与构建
 
 需要 Node.js 24、当前稳定版 Rust，以及对应平台的 [Tauri 编译依赖](https://v2.tauri.app/start/prerequisites/)。
@@ -43,8 +65,6 @@ npm run desktop:dev
 ```bash
 npm run desktop:build
 ```
-
-[GitHub Actions](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml) 配置了 Windows x64、macOS 通用架构、Linux x64 安装包构建。只有实际成功的任务才有对应产物。版本标签触发的构建在验证及各平台打包全部成功后发布到 [Releases](https://github.com/xzcode/diff-ex/releases)。
 
 macOS 配置 Ad-hoc 签名，尚未配置 Apple Developer ID 与公证；Windows 首版未配置代码签名。
 

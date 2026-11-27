@@ -29,9 +29,27 @@
 
 Two-way synchronization copies files that exist on only one side. Files modified on both sides remain explicit conflicts because the initial version has no historical synchronization baseline. Symbolic links, special files and file/directory type conflicts are not followed or automatically replaced.
 
+## Screenshots
+
+Actual production browser preview, captured by the UI verification workflow. Desktop builds use the same interface and add the native filesystem and Rust engines.
+
+![Editable text comparison](docs/screenshots/text-comparison.png)
+
+![Structured JSON comparison](docs/screenshots/structured-comparison.png)
+
+[Overview](docs/screenshots/overview.png) · [Soft light theme in Simplified Chinese](docs/screenshots/light-chinese.png)
+
 ## Get and build
 
-Installers are produced by the [desktop workflow](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml). A successful run provides Windows x64 installers, a macOS universal app/DMG, and Linux x64 packages. Tagged builds publish to [Releases](https://github.com/xzcode/diff-ex/releases) only after verification and all platform builds succeed. Check the run result before treating an artifact as available.
+Open a successful `master` run of the [desktop workflow](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml), then download the matching item under **Artifacts**. GitHub requires signing in to download workflow artifacts.
+
+| Platform | Artifact | Contents |
+| --- | --- | --- |
+| Windows x64 | `diff-ex-windows-x64` | NSIS `.exe` installer and `.msi` |
+| macOS Intel / Apple Silicon | `diff-ex-macos-universal` | Universal `.dmg` and zipped `.app` |
+| Linux x64 | `diff-ex-linux-x64` | `.deb` and `.AppImage` |
+
+These are development builds. Tagged builds publish to [Releases](https://github.com/xzcode/diff-ex/releases) after verification and all platform builds succeed. [The handoff](docs/HANDOFF_2026-11-27.md) records the builds and checks actually completed.
 
 ### Prerequisites
 

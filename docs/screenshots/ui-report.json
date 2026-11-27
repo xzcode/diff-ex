@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "checks": [
+    "Monaco renders; hunk merge changes only target; switching tabs retains undo and restores exact text.",
+    "Metadata-only edits set dirty badges; BOM and selected line endings export correctly and reset saved baselines; mixed EOL requires a choice.",
+    "Workspace reload restores documents and rules; a saved snapshot opens with a new session identity.",
+    "Theme and Chinese locale persist across reload; compact viewport has no page overflow.",
+    "JSON ignores object order, detects type changes, keeps canonical output read-only, and recovers after parse errors."
+  ],
+  "errors": []
+}
