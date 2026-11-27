@@ -44,14 +44,14 @@
 .comparison-card h2{font-size:15px;font-weight:650;line-height:1.35}
 .comparison-card p{font-size:12px;line-height:1.6;min-height:0;max-width:none;margin-bottom:18px}
 .card-footer{margin-top:auto;width:100%;gap:6px;padding-top:12px}
-.card-footer span{font:10px inherit;letter-spacing:0;overflow-wrap:anywhere}
+.card-footer span{font-size:10px;font-family:inherit;letter-spacing:0;overflow-wrap:anywhere}
 .welcome-bottom{margin-top:12px;padding:16px 0}
 .welcome-notes{font-size:11px;padding:17px 0}
 .btn,.panel-toolbar .btn,.text-tools .btn{min-height:var(--control-height);height:var(--control-height);padding:0 10px;font-size:12px;border-radius:5px}
 .btn-icon,.text-tools .btn-icon,.file-header .btn-icon{width:var(--control-height);height:var(--control-height);border-radius:5px}
 .btn.primary{color:var(--accent-text)}
 .btn.primary:hover:not(:disabled){filter:brightness(1.07);background:var(--accent)}
-select,input:not([type=checkbox]):not([type=number]){min-height:var(--control-height);border-radius:5px}
+select,.app-shell input:not([type=checkbox]):not([type=number]):not(.monaco-editor *){min-height:var(--control-height);border-radius:5px}
 .text-tools,.structure-toolbar,.folder-toolbar{padding:8px 12px!important;min-height:50px!important;background:var(--panel-alt)!important}
 .text-tools .syntax-select,.structure-toolbar select,.panel-toolbar select{height:var(--control-height);min-height:var(--control-height)}
 .file-header{padding:8px 12px!important;min-height:51px;background:var(--panel)!important}
@@ -75,3 +75,6 @@ select,input:not([type=checkbox]):not([type=number]){min-height:var(--control-he
 .loading-overlay{inset:50px 0 26px}
 @media(max-width:1000px){.comparison-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome-inner{padding:24px 20px}.app-status{gap:8px}.app-status>span:nth-child(4){display:none}.text-tools .btn{font-size:11px;padding:0 6px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+
+/* Keep translated commands usable in compact windows. */
+.text-tools .tool-group,.structure-toolbar .view-switch,.filter-tabs{flex-wrap:wrap}.folder-path>div{min-width:0}.folder-path input{min-width:0}.sidebar .saved-empty,.sidebar-footer div{overflow-wrap:anywhere}.app-header .local-badge{white-space:nowrap}.file-header .file-identity strong,.file-header .file-name strong{min-width:0}.settings-modal .setting-row{gap:16px}.settings-modal .setting-row select{flex-shrink:0}.folder-toolbar .tool-group{flex-wrap:wrap}.comparison-card .card-footer span{min-width:0}.settings-modal .theme-choices button:focus-visible{outline-offset:3px}

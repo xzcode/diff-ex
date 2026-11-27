@@ -40,6 +40,7 @@ let modified: monaco.editor.ITextModel | undefined
 let rawChanges: monaco.editor.ILineChange[] = []
 let diffVersions = [0, 0]
 let disposables: monaco.IDisposable[] = []
+let localizedActions: monaco.IDisposable[] = []
 let timer: ReturnType<typeof setTimeout> | undefined
 let requestId = 0
 let externalUpdate = false
@@ -150,12 +151,12 @@ function merge(target: Side) {
   if (!change) return
   const content = mergeLineChange(original.getValue(), modified.getValue(), change, target)
   replaceContents(target, content)
-  statusNote.value = t('Change applied. Undo is available.')
+  statusNote.value = 'Change applied. Undo is available.'
 }
 function copyAll(target: Side) {
   const source = documentModel(target === 'left' ? 'right' : 'left')
   if (source) replaceContents(target, source.getValue())
-  statusNote.value = t('All text copied. Undo is available.')
+  statusNote.value = 'All text copied. Undo is available.'
 }
 function undo() {
   contentEditor(activeSide.value)?.trigger('diff-ex', 'undo', null)
@@ -164,6 +165,20 @@ function find() {
   void contentEditor(activeSide.value)?.getAction('actions.find')?.run()
 }
 
+function syncLocalizedActions() {
+  localizedActions.forEach(action => action.dispose())
+  localizedActions = []
+  for (const side of sides) {
+    const pane = contentEditor(side)
+    if (!pane) continue
+    localizedActions.push(pane.addAction({ id: 'diff-ex.save-file', label: t('Save file'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS], run: () => emit('save', side) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.save-file-as', label: t('Save file as'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS], run: () => emit('save', side, true) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.open-file', label: t('Open file'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyO], run: () => emit('open', side) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.next-change', label: t('Next difference'), keybindings: [monaco.KeyCode.F7], run: () => navigate(1) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.previous-change', label: t('Previous difference'), keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.F7], run: () => navigate(-1) }))
+  }
+}
+watch(() => props.language, syncLocalizedActions)
 onMounted(async () => {
   await nextTick()
   if (!host.value || !alive) return
@@ -214,12 +229,8 @@ onMounted(async () => {
       cursor.value = { line: event.position.lineNumber, column: event.position.column }
       selectCurrentFromCursor(side, event.position.lineNumber)
     }))
-    disposables.push(pane.addAction({ id: 'diff-ex.save-file', label: 'Save file', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS], run: () => emit('save', side) }))
-    disposables.push(pane.addAction({ id: 'diff-ex.save-file-as', label: 'Save file as', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS], run: () => emit('save', side, true) }))
-    disposables.push(pane.addAction({ id: 'diff-ex.open-file', label: 'Open file', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyO], run: () => emit('open', side) }))
-    disposables.push(pane.addAction({ id: 'diff-ex.next-change', label: 'Next difference', keybindings: [monaco.KeyCode.F7], run: () => navigate(1) }))
-    disposables.push(pane.addAction({ id: 'diff-ex.previous-change', label: 'Previous difference', keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.F7], run: () => navigate(-1) }))
   }
+  syncLocalizedActions()
   disposables.push(editor.onDidUpdateDiff(() => {
     rawChanges = editor?.getLineChanges() || []
     rawCount.value = rawChanges.length
@@ -240,6 +251,8 @@ onBeforeUnmount(() => {
   alive = false
   requestId += 1
   if (timer) clearTimeout(timer)
+  localizedActions.forEach(action => action.dispose())
+  localizedActions = []
   for (const disposable of disposables) disposable.dispose()
   disposables = []
   editor?.dispose()
@@ -284,7 +297,7 @@ onBeforeUnmount(() => {
       <div v-for="side in sides" :key="side" class="file-header" :class="side">
         <span class="side-mark">{{ side === 'left' ? t('LEFT') : t('RIGHT') }}</span>
         <FileCode2 :size="17" class="file-symbol" />
-        <div class="file-identity"><strong :title="session[side].name">{{ session[side].name === 'Untitled' && !session[side].path ? t('Untitled') : session[side].name }}<span v-if="dirty(side)" class="dirty-dot" :title="t('Unsaved changes')" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document · paste or open a file') }}</span></div>
+        <div class="file-identity"><strong :title="session[side].name">{{ !session[side].path && ['Untitled', '(missing on left)', '(missing on right)'].includes(session[side].name) ? t(session[side].name) : session[side].name }}<span v-if="dirty(side)" class="dirty-dot" :title="t('Unsaved changes')" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document · paste or open a file') }}</span></div>
         <button class="btn-icon" :title="t('Open file')" :aria-label="side === 'left' ? t('Open left file') : t('Open right file')" @click="emit('open', side)"><FolderOpen :size="16" /></button>
         <button class="btn-icon" :title="t('Save file')" :aria-label="side === 'left' ? t('Save left file') : t('Save right file')" @click="emit('save', side)"><Save :size="16" /></button>
         <details class="file-menu"><summary :aria-label="t('File options')"><ChevronDown :size="13" /></summary><div class="file-menu-popover">
@@ -305,7 +318,7 @@ onBeforeUnmount(() => {
       <span v-if="busy" class="muted">{{ t('Comparing…') }}</span>
       <template v-else-if="result"><span v-if="result.equal" class="equal-status"><Check :size="14" />{{ rulesActive ? t('Equal under current rules') : t('Contents are equal') }}</span><template v-else><span class="stat added">+{{ result.added }} {{ t('added') }}</span><span class="stat removed">−{{ result.removed }} {{ t('removed') }}</span><span class="stat modified">{{ result.modified }} {{ t('modified') }}</span><span class="muted">{{ result.hunks.length }} {{ t('change blocks') }}</span></template></template>
       <span v-if="rulesActive" class="rule-badge">{{ t('Rules applied to count') }}</span>
-      <span class="toolbar-spacer" /><span class="status-note">{{ statusNote || t('F7 next change · edits are saved only when you choose Save') }}</span>
+      <span class="toolbar-spacer" /><span class="status-note">{{ t(statusNote || 'F7 next change · edits are saved only when you choose Save') }}</span>
     </div>
   </section>
 </template>

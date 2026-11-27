@@ -32,7 +32,9 @@ const namingSessionId = ref('')
 const nameInput = ref<HTMLInputElement>()
 const dragging = ref(false)
 const active = computed(() => sessions.value.find(s => s.id === activeId.value))
-const language = computed(() => resolveLocale(preferences.value.locale, navigator.language))
+const systemLanguage = ref(navigator.language)
+const updateSystemLanguage = () => { systemLanguage.value = navigator.language }
+const language = computed(() => resolveLocale(preferences.value.locale, systemLanguage.value))
 const tr = (key: string, ...args: (string | number)[]) => translate(language.value, key, ...args)
 const filteredSaved = computed(() => savedSessions.value.filter(s => s.name.toLowerCase().includes(search.value.toLowerCase())))
 const kindName = (kind: CompareKind) => ({ text: tr('Text compare'), folder: tr('Folder compare'), structured: tr('Structured compare') }[kind])
@@ -177,8 +179,8 @@ async function openFolderFile(entry: DirectoryEntry, leftRoot: string, rightRoot
       entry.left?.kind === 'file' ? readText(joinPath(leftRoot, entry.relativePath)) : Promise.resolve(null),
       entry.right?.kind === 'file' ? readText(joinPath(rightRoot, entry.relativePath)) : Promise.resolve(null),
     ])
-    if (left) { s.left = left; s.savedLeft = left.content; s.savedLeftMetadata = metadataSignature(left) } else s.left.name = tr('(missing on left)')
-    if (right) { s.right = right; s.savedRight = right.content; s.savedRightMetadata = metadataSignature(right) } else s.right.name = tr('(missing on right)')
+    if (left) { s.left = left; s.savedLeft = left.content; s.savedLeftMetadata = metadataSignature(left) } else s.left.name = '(missing on left)'
+    if (right) { s.right = right; s.savedRight = right.content; s.savedRightMetadata = metadataSignature(right) } else s.right.name = '(missing on right)'
     sessions.value.push(s); activeId.value = s.id
   } catch (e) { notify(String(e), true) }
   finally { busy.value = false }
@@ -246,6 +248,7 @@ onMounted(async () => {
     if (raw) { const state = decodeWorkspace(raw); sessions.value = state.sessions; activeId.value = state.activeId; preferences.value = state.preferences; savedSessions.value = state.savedSessions }
   } catch (e) { restoringFailed.value = true; workspaceError.value = tr('Workspace could not be restored. Autosave paused: ') + String(e) }
   loaded.value = true
+  window.addEventListener('languagechange', updateSystemLanguage)
   window.addEventListener('keydown', keyboard)
   window.addEventListener('beforeunload', beforeUnload)
   if (isDesktop) {
@@ -282,13 +285,13 @@ onMounted(async () => {
     }))
   }
 })
-onBeforeUnmount(() => { unlisten.forEach(fn => fn()); window.removeEventListener('keydown', keyboard); window.removeEventListener('beforeunload', beforeUnload); if (persistTimer) clearTimeout(persistTimer); if (notificationTimer) clearTimeout(notificationTimer) })
-const themes: { value: Theme; en: string; zh: string; colors: string[] }[] = [
-  { value: 'dark', en: 'Midnight', zh: '深色', colors: ['#10131a','#1a1f2b','#7899ff'] },
-  { value: 'black', en: 'Pure black', zh: '纯黑', colors: ['#000000','#171717','#a6baff'] },
-  { value: 'gray', en: 'Graphite', zh: '灰色', colors: ['#323437','#484b50','#b0c6ff'] },
-  { value: 'white', en: 'White', zh: '白色', colors: ['#ffffff','#e9edf2','#245ac6'] },
-  { value: 'light', en: 'Soft light', zh: '柔和白色', colors: ['#faf8f3','#e8e5de','#526bba'] },
+onBeforeUnmount(() => { unlisten.forEach(fn => fn()); window.removeEventListener('languagechange', updateSystemLanguage); window.removeEventListener('keydown', keyboard); window.removeEventListener('beforeunload', beforeUnload); if (persistTimer) clearTimeout(persistTimer); if (notificationTimer) clearTimeout(notificationTimer) })
+const themes: { value: Theme; en: string; colors: string[] }[] = [
+  { value: 'dark', en: 'Midnight', colors: ['#10131a','#1a1f2b','#7899ff'] },
+  { value: 'black', en: 'Pure black', colors: ['#000000','#171717','#a6baff'] },
+  { value: 'gray', en: 'Graphite', colors: ['#323437','#484b50','#b0c6ff'] },
+  { value: 'white', en: 'White', colors: ['#ffffff','#e9edf2','#245ac6'] },
+  { value: 'light', en: 'Soft light', colors: ['#faf8f3','#e8e5de','#526bba'] },
 ]
 </script>
 
@@ -307,7 +310,7 @@ const themes: { value: Theme; en: string; zh: string; colors: string[] }[] = [
     <div v-if="notification" class="toast" :class="{ error: notification.error }" role="status"><Check v-if="!notification.error" :size="17" /><span>{{ notification.text }}</span><button :title="tr('Dismiss')" @click="notification = null"><X :size="16" /></button></div>
     <div v-if="!loaded" class="loading-overlay"><span>{{ tr('Restoring workspace…') }}</span></div>
     <div v-if="dragging" class="drop-overlay" @dragleave.prevent="dragging = false" @drop.prevent="droppedFiles(Array.from($event.dataTransfer?.files || []))"><FileDiff :size="45"/><h2>{{ tr('Drop files to compare') }}</h2><p>{{ tr('Files open in pairs as new comparisons.') }}</p></div>
-    <Teleport to="body"><div v-if="settingsOpen" class="modal-backdrop" @click.self="settingsOpen = false"><section class="modal settings-modal" role="dialog" aria-modal="true" :aria-label="tr('Settings')"><header><div><span class="eyebrow">{{ tr('MAKE IT YOURS') }}</span><h2>{{ tr('Workspace settings') }}</h2></div><button class="btn-icon" :title="tr('Close settings')" @click="settingsOpen = false"><X :size="20"/></button></header><div class="setting-section"><h3>{{ tr('Appearance') }}</h3><div class="theme-choices"><button v-for="theme in themes" :key="theme.value" :class="{ selected: preferences.theme === theme.value }" :aria-pressed="preferences.theme === theme.value" @click="preferences.theme = theme.value"><div :style="{ background: theme.colors[0] }"><i :style="{ background: theme.colors[1] }"/><span :style="{ background: theme.colors[2] }"/><Check v-if="preferences.theme === theme.value" :size="16"/></div><span>{{ tr(theme.en) }}</span></button></div></div><div class="setting-row"><label for="language-setting">{{ tr('Language') }}<span>{{ tr('Applied immediately and remembered.') }}</span></label><select id="language-setting" v-model="preferences.locale"><option value="system">{{ tr('Follow system') }}</option><option v-for="option in languageOptions" :key="option.code" :value="option.code">{{ option.name }}</option></select></div><div class="setting-row"><label for="font-setting">{{ tr('Editor font size') }}</label><div class="font-control"><input id="font-setting" v-model.number="preferences.fontSize" type="number" min="8" max="40" @change="preferences.fontSize = Math.max(8, Math.min(40, Number(preferences.fontSize) || 13))"><span>px</span></div></div><div class="setting-row"><label for="wrap-setting">{{ tr('Wrap long lines') }}</label><input id="wrap-setting" v-model="preferences.wordWrap" type="checkbox"></div><div class="setting-row"><label for="sidebar-setting">{{ tr('Show workspace sidebar') }}</label><input id="sidebar-setting" v-model="preferences.showSidebar" type="checkbox"></div><p class="settings-note"><ShieldCheck :size="16"/>{{ tr('Sessions, unsaved edits and settings are stored locally. Original files are only written when you save or apply a sync.') }}</p><footer><button class="btn primary" @click="settingsOpen = false">{{ tr('Done') }}</button></footer></section></div>
+    <Teleport to="body"><div v-if="settingsOpen" class="modal-backdrop" @click.self="settingsOpen = false"><section class="modal settings-modal" role="dialog" aria-modal="true" :aria-label="tr('Settings')"><header><div><span class="eyebrow">{{ tr('MAKE IT YOURS') }}</span><h2>{{ tr('Workspace settings') }}</h2></div><button class="btn-icon" :title="tr('Close settings')" @click="settingsOpen = false"><X :size="20"/></button></header><div class="setting-section"><h3>{{ tr('Appearance') }}</h3><div class="theme-choices"><button v-for="theme in themes" :key="theme.value" :class="{ selected: preferences.theme === theme.value }" :aria-pressed="preferences.theme === theme.value" :data-theme-option="theme.value" @click="preferences.theme = theme.value"><div :style="{ background: theme.colors[0] }"><i :style="{ background: theme.colors[1] }"/><span :style="{ background: theme.colors[2] }"/><Check v-if="preferences.theme === theme.value" :size="16"/></div><span>{{ tr(theme.en) }}</span></button></div></div><div class="setting-row"><label for="language-setting">{{ tr('Language') }}<span>{{ tr('Applied immediately and remembered.') }}</span></label><select id="language-setting" v-model="preferences.locale"><option value="system">{{ tr('Follow system') }}</option><option v-for="option in languageOptions" :key="option.code" :value="option.code">{{ option.name }}</option></select></div><div class="setting-row"><label for="font-setting">{{ tr('Editor font size') }}</label><div class="font-control"><input id="font-setting" v-model.number="preferences.fontSize" type="number" min="8" max="40" @change="preferences.fontSize = Math.max(8, Math.min(40, Number(preferences.fontSize) || 13))"><span>px</span></div></div><div class="setting-row"><label for="wrap-setting">{{ tr('Wrap long lines') }}</label><input id="wrap-setting" v-model="preferences.wordWrap" type="checkbox"></div><div class="setting-row"><label for="sidebar-setting">{{ tr('Show workspace sidebar') }}</label><input id="sidebar-setting" v-model="preferences.showSidebar" type="checkbox"></div><p class="settings-note"><ShieldCheck :size="16"/>{{ tr('Sessions, unsaved edits and settings are stored locally. Original files are only written when you save or apply a sync.') }}</p><footer><button class="btn primary" @click="settingsOpen = false">{{ tr('Done') }}</button></footer></section></div>
     <div v-if="nameDialog" class="modal-backdrop" @click.self="nameDialog = false"><form class="modal name-modal" role="dialog" aria-modal="true" @submit.prevent="commitNamedSession"><header><h2>{{ tr('Save session') }}</h2><button type="button" class="btn-icon" @click="nameDialog = false"><X :size="19"/></button></header><label for="session-name">{{ tr('Session name') }}</label><input ref="nameInput" id="session-name" v-model="sessionName" required/><p class="muted small">{{ tr('Includes both documents, comparison rules and unsaved edits.') }}</p><footer><button type="button" class="btn" @click="nameDialog = false">{{ tr('Cancel') }}</button><button class="btn primary" type="submit">{{ tr('Save session') }}</button></footer></form></div>
     <div v-if="helpOpen" class="modal-backdrop" @click.self="helpOpen = false"><section class="modal help-modal" role="dialog" aria-modal="true"><header><h2>{{ tr('Keyboard shortcuts') }}</h2><button class="btn-icon" @click="helpOpen = false"><X :size="20"/></button></header><div v-for="item in [[tr('New text comparison'),'⌘ / Ctrl + N'],[tr('Open a file'),'⌘ / Ctrl + O'],[tr('Save active editor / right side'),'⌘ / Ctrl + S'],[tr('Save as'),'⌘ / Ctrl + Shift + S'],[tr('Next / previous difference'),'F7 / Shift + F7'],[tr('Find in editor'),'⌘ / Ctrl + F'],[tr('Undo merge / edit'),'⌘ / Ctrl + Z'],[tr('Settings'),'⌘ / Ctrl + ,']]" :key="item[0]" class="shortcut-row"><span>{{ item[0] }}</span><kbd>{{ item[1] }}</kbd></div><a class="source-link" href="https://github.com/xzcode/diff-ex" target="_blank" rel="noreferrer"><Github :size="16"/>xzcode/diff-ex</a></section></div></Teleport>
   </div>

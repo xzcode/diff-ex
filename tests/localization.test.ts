@@ -4,6 +4,7 @@ import { decodeWorkspace, defaultPreferences } from '../src/lib/workspace'
 describe('appearance and localization', () => {
   it('keeps locale catalogs complete and preserves interpolation', () => {
     expect(validateCatalogs()).toEqual([])
+    expect(languageOptions.map(x => x.code)).toEqual(['en','zh-CN','zh-TW','ja','ko','de','fr','es','pt-BR','ru','ms','id'])
     for (const { code } of languageOptions) {
       expect(isLocale(code)).toBe(true)
       expect(translate(code, 'Saved {0}', 'a.json')).toContain('a.json')
@@ -13,6 +14,14 @@ describe('appearance and localization', () => {
   it('uses supported OS locales and safe fallbacks', () => {
     expect(resolveLocale('system', 'zh-Hans-CN')).toBe('zh-CN')
     expect(resolveLocale('system', 'en-GB')).toBe('en')
+    expect(resolveLocale('system', 'zh-Hant-HK')).toBe('zh-TW')
+    expect(resolveLocale('system', 'zh-TW')).toBe('zh-TW')
+    expect(resolveLocale('system', 'pt-PT')).toBe('pt-BR')
+    expect(resolveLocale('system', 'ja-JP')).toBe('ja')
+    expect(resolveLocale('system', 'es-MX')).toBe('es')
+    expect(resolveLocale('system', 'ms-MY')).toBe('ms')
+    expect(resolveLocale('system', 'id-ID')).toBe('id')
+    expect(resolveLocale('system', 'ru-RU')).toBe('ru')
     expect(resolveLocale('system', 'xx-XX')).toBe('en')
   })
   it('restores all theme and language combinations without losing the workspace', () => {

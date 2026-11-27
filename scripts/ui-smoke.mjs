@@ -243,6 +243,52 @@ try {
   assert.equal(await activeView().locator('.parse-error').count(), 0)
   checks.push('JSON ignores object order, detects type changes, keeps canonical output read-only, and recovers after parse errors.')
 
+
+  // Switch all locales through the actual settings UI. Verify a real localized
+  // control, selected preference and document language without reloading editors.
+  const localeCases = [
+    ['en','Settings'], ['zh-CN','设置'], ['zh-TW','設定'], ['ja','設定'],
+    ['ko','설정'], ['de','Einstellungen'], ['fr','Paramètres'], ['es','Configuración'],
+    ['pt-BR','Configurações'], ['ru','Настройки'], ['ms','Tetapan'], ['id','Pengaturan'],
+  ]
+  await page.locator('.comparison-tab .tab-select').first().click()
+  await activeView().locator('.text-workspace').waitFor()
+  const editorSnapshot = await activeSession()
+  await page.locator('.header-actions button').last().click()
+  const languageSelect = page.locator('#language-setting')
+  assert.equal(await languageSelect.locator('option').count(), 13, '12 languages plus system language')
+  for (const [locale, settingsLabel] of localeCases) {
+    await languageSelect.selectOption(locale)
+    await page.locator('html[lang="'+locale+'"]').waitFor()
+    await page.getByRole('dialog', { name: settingsLabel, exact: true }).waitFor()
+    await waitState(w => w?.preferences.locale === locale, 'language '+locale)
+  }
+  await page.locator('.settings-modal footer button').click()
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.getByRole('button', { name: 'Pengaturan', exact: true }).waitFor()
+  assert.equal((await activeSession()).left.content, editorSnapshot.left.content)
+  assert.equal((await activeSession()).right.content, editorSnapshot.right.content)
+  await page.getByRole('button', { name: 'Pengaturan', exact: true }).click()
+  await page.locator('#language-setting').selectOption('en')
+  await page.locator('.settings-modal footer button').click()
+  // Verify each selected theme changes the actual UI surface and editor.
+  const themeCases = [
+    ['black','rgb(0, 0, 0)'], ['gray','rgb(42, 44, 48)'],
+    ['white','rgb(255, 255, 255)'], ['light','rgb(250, 248, 243)'],
+    ['dark','rgb(21, 27, 37)'],
+  ]
+  for (const [theme, expectedEditor] of themeCases) {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.locator('[data-theme-option="'+theme+'"]').click()
+    await page.locator('.settings-modal footer button').click()
+    await page.locator('html[data-theme="'+theme+'"]').waitFor()
+    await waitState(w => w?.preferences.theme === theme, 'theme '+theme)
+    const actual = await activeView().locator('.monaco-editor-background').first().evaluate(el => getComputedStyle(el).backgroundColor)
+    assert.equal(actual, expectedEditor, 'editor color for '+theme)
+    await screenshot('theme-'+theme)
+  }
+  checks.push('All 12 interface languages switch and persist, and all five themes apply to the Monaco editor without losing documents.')
+
   assert.deepEqual(errors, [], 'No uncaught browser errors are permitted.')
   await writeFile(resolve(artifacts, 'report.json'), JSON.stringify({ ok: true, checks, errors }, null, 2))
   console.log(checks.map(check => `PASS ${check}`).join('\n'))

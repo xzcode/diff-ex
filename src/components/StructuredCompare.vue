@@ -41,6 +41,7 @@ let originals: Partial<Record<Side, monaco.editor.ITextModel>> = {}
 let canonicals: Partial<Record<Side, monaco.editor.ITextModel>> = {}
 let viewStates: Partial<Record<Side, monaco.editor.ICodeEditorViewState | null>> = {}
 let disposables: monaco.IDisposable[] = []
+let localizedActions: monaco.IDisposable[] = []
 let resizeObserver: ResizeObserver | undefined
 let timer: ReturnType<typeof setTimeout> | undefined
 let requestId = 0
@@ -165,6 +166,18 @@ function resetList() {
   if (listHost.value) listHost.value.scrollTop = 0
 }
 
+function syncLocalizedActions() {
+  localizedActions.forEach(action => action.dispose())
+  localizedActions = []
+  for (const side of sides) {
+    const pane = editorFor(side)
+    if (!pane) continue
+    localizedActions.push(pane.addAction({ id: 'diff-ex.save-file', label: t('Save original file'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS], run: () => emit('save', side) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.save-file-as', label: t('Save original file as'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS], run: () => emit('save', side, true) }))
+    localizedActions.push(pane.addAction({ id: 'diff-ex.open-file', label: t('Open file'), keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyO], run: () => emit('open', side) }))
+  }
+}
+watch(() => props.language, syncLocalizedActions)
 onMounted(async () => {
   await nextTick()
   if (!alive || !leftHost.value || !rightHost.value) return
@@ -182,11 +195,9 @@ onMounted(async () => {
     })
     if (side === 'left') editorLeft = instance
     else editorRight = instance
-    disposables.push(instance.addAction({ id: 'diff-ex.save-file', label: 'Save original file', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS], run: () => emit('save', side) }))
-    disposables.push(instance.addAction({ id: 'diff-ex.save-file-as', label: 'Save original file as', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyS], run: () => emit('save', side, true) }))
-    disposables.push(instance.addAction({ id: 'diff-ex.open-file', label: 'Open file', keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyO], run: () => emit('open', side) }))
     disposables.push(originals[side]!.onDidChangeContent(() => { if (!externalUpdate) emit('change', side, originals[side]!.getValue()) }))
   }
+  syncLocalizedActions()
   resizeObserver = new ResizeObserver(() => { if (listHost.value) listHeight.value = listHost.value.clientHeight })
   if (listHost.value) resizeObserver.observe(listHost.value)
   scheduleCompare()
@@ -211,6 +222,8 @@ onBeforeUnmount(() => {
   if (timer) clearTimeout(timer)
   dragCleanup?.()
   resizeObserver?.disconnect()
+  localizedActions.forEach(action => action.dispose())
+  localizedActions = []
   for (const disposable of disposables) disposable.dispose()
   editorLeft?.dispose()
   editorRight?.dispose()
@@ -229,7 +242,7 @@ onBeforeUnmount(() => {
       <div class="view-switch"><button :class="{ active: !canonical }" @click="canonical = false"><Code2 :size="14" />{{ t('Original') }}</button><button :class="{ active: canonical }" @click="canonical = true"><FileJson2 :size="14" />{{ t('Canonical JSON') }}</button></div>
     </div>
     <div class="semantic-note"><ArrowLeftRight :size="13" /><span>{{ canonical ? t('Read-only comparison representation. Saving always writes the original document.') : t('Object key order is ignored. Types, values and ordered collections are compared.') }}</span></div>
-    <div class="file-headers" :style="{ gridTemplateColumns: `${leftPercent}% 1fr` }"><div v-for="side in sides" :key="side" class="file-header"><span class="side-mark">{{ side === 'left' ? t('LEFT') : t('RIGHT') }}</span><div class="file-name"><strong>{{ session[side].name === 'Untitled' && !session[side].path ? t('Untitled') : session[side].name }}<span v-if="dirty(side)" class="dirty-dot" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document') }}</span></div><span class="encoding-badge">{{ session[side].encoding.toUpperCase() }} · {{ session[side].lineEnding.toUpperCase() }}</span><button class="btn-icon" :title="t('Open original file')" :aria-label="side === 'left' ? t('Open left file') : t('Open right file')" @click="emit('open', side)"><FolderOpen :size="15" /></button><button class="btn-icon" :title="t('Save original file')" :aria-label="side === 'left' ? t('Save left file') : t('Save right file')" @click="emit('save', side)"><Save :size="15" /></button><details class="file-menu"><summary :aria-label="t('File options')"><ChevronDown :size="13" /></summary><div class="file-menu-popover"><button @click="emit('open', side, session[side].encoding)">{{ t('Open using selected encoding…') }}</button><button @click="emit('save', side, true)">{{ t('Save original as…') }}</button><label>{{ t('Save encoding') }}<select :aria-label="t('Save encoding')" :value="session[side].encoding.toLowerCase()" @change="setMetadata(side, 'encoding', $event)"><option value="utf-8">UTF-8</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option><option value="gbk">GBK</option><option value="gb18030">GB18030</option></select></label><label>{{ t('Save line endings') }}<select :aria-label="t('Save line endings')" :value="session[side].lineEnding" @change="setMetadata(side, 'lineEnding', $event)"><option value="lf">LF</option><option value="crlf">CRLF</option><option value="cr">CR</option><option v-if="session[side].lineEnding === 'mixed'" value="mixed" disabled>{{ t('Mixed — choose') }}</option><option v-if="session[side].lineEnding === 'none'" value="none">{{ t('No line ending') }}</option></select></label><label class="check-label"><input type="checkbox" :disabled="!session[side].encoding.toLowerCase().startsWith('utf')" :checked="session[side].bom" @change="emit('update-document', side, { bom: ($event.target as HTMLInputElement).checked })" />BOM</label></div></details></div></div>
+    <div class="file-headers" :style="{ gridTemplateColumns: `${leftPercent}% 1fr` }"><div v-for="side in sides" :key="side" class="file-header"><span class="side-mark">{{ side === 'left' ? t('LEFT') : t('RIGHT') }}</span><div class="file-name"><strong>{{ !session[side].path && ['Untitled', '(missing on left)', '(missing on right)'].includes(session[side].name) ? t(session[side].name) : session[side].name }}<span v-if="dirty(side)" class="dirty-dot" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document') }}</span></div><span class="encoding-badge">{{ session[side].encoding.toUpperCase() }} · {{ session[side].lineEnding.toUpperCase() }}</span><button class="btn-icon" :title="t('Open original file')" :aria-label="side === 'left' ? t('Open left file') : t('Open right file')" @click="emit('open', side)"><FolderOpen :size="15" /></button><button class="btn-icon" :title="t('Save original file')" :aria-label="side === 'left' ? t('Save left file') : t('Save right file')" @click="emit('save', side)"><Save :size="15" /></button><details class="file-menu"><summary :aria-label="t('File options')"><ChevronDown :size="13" /></summary><div class="file-menu-popover"><button @click="emit('open', side, session[side].encoding)">{{ t('Open using selected encoding…') }}</button><button @click="emit('save', side, true)">{{ t('Save original as…') }}</button><label>{{ t('Save encoding') }}<select :aria-label="t('Save encoding')" :value="session[side].encoding.toLowerCase()" @change="setMetadata(side, 'encoding', $event)"><option value="utf-8">UTF-8</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option><option value="gbk">GBK</option><option value="gb18030">GB18030</option></select></label><label>{{ t('Save line endings') }}<select :aria-label="t('Save line endings')" :value="session[side].lineEnding" @change="setMetadata(side, 'lineEnding', $event)"><option value="lf">LF</option><option value="crlf">CRLF</option><option value="cr">CR</option><option v-if="session[side].lineEnding === 'mixed'" value="mixed" disabled>{{ t('Mixed — choose') }}</option><option v-if="session[side].lineEnding === 'none'" value="none">{{ t('No line ending') }}</option></select></label><label class="check-label"><input type="checkbox" :disabled="!session[side].encoding.toLowerCase().startsWith('utf')" :checked="session[side].bom" @change="emit('update-document', side, { bom: ($event.target as HTMLInputElement).checked })" />BOM</label></div></details></div></div>
     <div v-if="session.left.lineEnding === 'mixed' || session.right.lineEnding === 'mixed'" class="mixed-note">{{ t('Mixed line endings will normalize when edited. Select LF, CRLF or CR before saving.') }}</div>
     <div ref="editorsHost" class="structure-editors" :style="{ flexBasis: `${editorPercent}%`, gridTemplateColumns: `calc(${leftPercent}% - 2px) 4px 1fr` }"><div ref="leftHost" class="code-host" /><div class="horizontal-handle" role="separator" aria-orientation="vertical" :aria-valuenow="Math.round(leftPercent)" tabindex="0" :title="t('Resize editors')" @pointerdown="dragSplit($event, 'horizontal')" @keydown.left.prevent="leftPercent = Math.max(20, leftPercent - 2)" @keydown.right.prevent="leftPercent = Math.min(80, leftPercent + 2)" /><div ref="rightHost" class="code-host" /></div>
     <div class="vertical-handle" role="separator" aria-orientation="horizontal" :aria-valuenow="Math.round(editorPercent)" tabindex="0" :title="t('Resize result area')" @pointerdown="dragSplit($event, 'vertical')" @keydown.up.prevent="editorPercent = Math.max(20, editorPercent - 2)" @keydown.down.prevent="editorPercent = Math.min(75, editorPercent + 2)" />
