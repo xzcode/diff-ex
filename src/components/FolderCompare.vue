@@ -33,7 +33,7 @@ let observer: ResizeObserver | undefined
 let alive = true
 let epoch = 0
 const movePairs = computed(() => props.session.directoryOptions.method === 'content' ? findRenameCandidates(results.value?.entries || []) : [])
-const moveByPath = computed(() => new Map(movePairs.value.flatMap(pair => [[pair.left.relativePath, pair], [pair.right.relativePath, pair]] as const)))
+const moveByPath = computed(() => new Map(movePairs.value.flatMap(pair => [[pair.left.relativePath, pair] as const, [pair.right.relativePath, pair] as const])))
 const rows = computed(() => {
   const q = query.value.toLowerCase()
   return (results.value?.entries || []).filter(e => (filter.value === 'all' || (filter.value === 'changed' ? e.status !== 'same' : filter.value === 'moves' ? moveByPath.value.has(e.relativePath) : e.status === filter.value)) && (!q || e.relativePath.toLowerCase().includes(q) || !!moveByPath.value.get(e.relativePath)?.left.relativePath.toLowerCase().includes(q) || !!moveByPath.value.get(e.relativePath)?.right.relativePath.toLowerCase().includes(q)))
@@ -135,7 +135,7 @@ onBeforeUnmount(() => { alive = false; observer?.disconnect(); if (job.value) vo
       <template v-else>
         <div :style="{ height: first * 37 + 'px' }" />
         <div v-for="entry in visibleRows" :key="entry.relativePath" class="directory-row directory-file" :class="[{ selected: selected === entry.relativePath }, 'status-' + entry.status]" tabindex="0" :title="entry.error || (moveByPath.get(entry.relativePath) ? moveByPath.get(entry.relativePath)!.left.relativePath + ' ↔ ' + moveByPath.get(entry.relativePath)!.right.relativePath : entry.relativePath)" @click="selected = entry.relativePath" @dblclick="openEntry(entry)" @keydown.enter="openEntry(entry)">
-          <div class="file-name"><Folder v-if="(entry.left || entry.right)?.kind === 'directory'" :size="17" class="folder-icon" /><FileCode2 v-else :size="16" /><span>{{ entry.relativePath }}</span></div><span class="status-label"><i />{{ moveByPath.has(entry.relativePath) ? tr('Possible move') : statusText(entry.status) }}</span><span class="file-size">{{ entry.left?.kind === 'directory' ? '—' : bytes(entry.left?.size) }}</span><span class="file-size">{{ entry.right?.kind === 'directory' ? '—' : bytes(entry.right?.size) }}</span>
+          <div class="file-name"><Folder v-if="(entry.left || entry.right)?.kind === 'directory'" :size="17" class="folder-icon" /><FileCode2 v-else :size="16" /><span>{{ entry.relativePath }}<template v-if="moveByPath.has(entry.relativePath)"> ↔ {{ entry.status === 'leftOnly' ? moveByPath.get(entry.relativePath)?.right.relativePath : moveByPath.get(entry.relativePath)?.left.relativePath }}</template></span></div><span class="status-label"><i />{{ moveByPath.has(entry.relativePath) ? tr('Possible move') : statusText(entry.status) }}</span><span class="file-size">{{ entry.left?.kind === 'directory' ? '—' : bytes(entry.left?.size) }}</span><span class="file-size">{{ entry.right?.kind === 'directory' ? '—' : bytes(entry.right?.size) }}</span>
         </div>
         <div :style="{ height: (rows.length - last) * 37 + 'px' }" />
         <div v-if="!rows.length" class="empty-result">{{ tr('No files match this filter.') }}</div>

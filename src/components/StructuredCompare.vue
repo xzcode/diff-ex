@@ -122,7 +122,7 @@ function scheduleCompare() {
   }
   timer = setTimeout(async () => {
     try {
-      const left = props.session.left.content, right = props.session.right.content
+      const left = originals.left?.getValue() ?? props.session.left.content, right = originals.right?.getValue() ?? props.session.right.content
       const options = { ...props.session.structuredOptions }
       const next = await compareStructured(left, right, options)
       if (!alive || thisRequest !== requestId) return

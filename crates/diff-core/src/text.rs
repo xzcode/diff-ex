@@ -322,9 +322,11 @@ mod tests {
                 right_end: 4,
             }]
         );
-        assert!(compare_text("# old\nkeep", "# new\nkeep", &options)
-            .unwrap()
-            .equal);
+        assert!(
+            compare_text("# old\nkeep", "# new\nkeep", &options)
+                .unwrap()
+                .equal
+        );
         assert!(!compare_text("x # old", "x # new", &options).unwrap().equal);
         let invalid = TextOptions {
             ignore_line_regex: "[".into(),

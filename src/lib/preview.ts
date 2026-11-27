@@ -26,7 +26,7 @@ export function previewText(left: string, right: string, options: TextOptions): 
   const out: TextDiffResult = { hunks: [], equal: true, added: 0, removed: 0, modified: 0, unchanged: 0 }
   let ai = 0, bi = 0
   let pending: { a: number; b: number; removed: number; added: number } | null = null
-  const start = (list: typeof a, i: number) => list.result[i]?.line ?? list.length
+  const start = (list: typeof a, i: number) => list.result[i]?.line ?? (list.result.length ? list.result[list.result.length - 1]!.line + 1 : 0)
   const end = (list: typeof a, i: number, count: number) => count ? (list.result[i + count - 1]?.line ?? list.length - 1) + 1 : start(list, i)
   const flush = () => {
     if (!pending) return
