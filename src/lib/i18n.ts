@@ -3,7 +3,7 @@ import { english, simplified } from '../locales/catalog'
 
 const catalogs = import.meta.glob<string[]>('../locales/*.json', { eager: true, import: 'default' })
 const index = new Map<string, number>(english.map((key, i) => [key, i] as const))
-const dictionaries: Record<string, readonly string[]> = { en: english, 'zh-CN': simplified }
+const dictionaries: Record<string, readonly string[]> = Object.assign(Object.create(null), { en: english, 'zh-CN': simplified })
 for (const [path, values] of Object.entries(catalogs)) {
   const locale = path.split('/').pop()!.replace(/\.json$/, '')
   if (values.length === english.length && values.every(s => typeof s === 'string' && s.length > 0)) dictionaries[locale] = values

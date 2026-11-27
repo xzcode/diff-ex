@@ -253,6 +253,7 @@ try {
   ]
   await page.locator('.comparison-tab .tab-select').first().click()
   await activeView().locator('.text-workspace').waitFor()
+  await waitState(w => w?.activeId === w?.sessions[0]?.id, 'return to text comparison before switching locales')
   const editorSnapshot = await activeSession()
   await page.locator('.header-actions button').last().click()
   const languageSelect = page.locator('#language-setting')
