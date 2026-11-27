@@ -1,13 +1,36 @@
 import { isLocale } from './i18n'
-import type { CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
+import type { AssetRef, AssetSettings, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
 
 export interface SavedSession { id: string; name: string; savedAt: string; session: CompareSession }
 export interface Workspace { version: 1; sessions: CompareSession[]; activeId: string; preferences: Preferences; savedSessions: SavedSession[] }
 export const defaultPreferences: Preferences = { theme: 'dark', locale: 'system', fontSize: 13, wordWrap: false, showSidebar: true }
+export const defaultAssetSettings = (): AssetSettings => ({
+  binaryOffset: 0, binaryPageSize: 512, imageMode: 'side', imageTolerance: 0, imageMix: 50,
+  tableDelimiter: 'auto', tableEncoding: 'auto', tableHeader: true, tableColumnMode: 'position',
+  tableRowMode: 'position', tableKey: '', tableIgnoreType: false, leftSheet: '', rightSheet: '',
+})
+function validAsset(value: unknown): value is AssetRef | null {
+  if (value === null) return true
+  if (!value || typeof value !== 'object') return false
+  const a = value as AssetRef
+  return (a.path === null || (typeof a.path === 'string' && !!a.path)) && typeof a.name === 'string' &&
+    Number.isSafeInteger(a.size) && a.size >= 0 && typeof a.modified === 'string'
+}
+function validAssetSettings(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const p = { ...defaultAssetSettings(), ...value }
+  return Number.isSafeInteger(p.binaryOffset) && p.binaryOffset >= 0 && [256,512,1024,4096].includes(p.binaryPageSize) &&
+    ['side','overlay','split','heat'].includes(p.imageMode) &&
+    Number.isInteger(p.imageTolerance) && p.imageTolerance >= 0 && p.imageTolerance <= 255 &&
+    Number.isFinite(p.imageMix) && p.imageMix >= 0 && p.imageMix <= 100 &&
+    ['auto',',','\t',';','|'].includes(p.tableDelimiter) && ['auto','utf-8','utf-16le','utf-16be','gb18030','shift_jis','windows-1252'].includes(p.tableEncoding) &&
+    typeof p.tableHeader === 'boolean' && ['position','header'].includes(p.tableColumnMode) && ['position','key'].includes(p.tableRowMode) &&
+    typeof p.tableKey === 'string' && typeof p.tableIgnoreType === 'boolean' && typeof p.leftSheet === 'string' && typeof p.rightSheet === 'string'
+}
 export const newDocument = (): TextDocument => ({ path: null, name: 'Untitled', content: '', encoding: 'UTF-8', bom: false, lineEnding: 'lf', fingerprint: null, byteLength: 0 })
 export const metadataSignature = (doc: TextDocument): string => JSON.stringify([doc.encoding.toLowerCase(), doc.bom, doc.lineEnding])
 export function newSession(kind: CompareKind = 'text'): CompareSession {
-  return { id: crypto.randomUUID(), title: '', kind, left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
+  return { id: crypto.randomUUID(), title: '', kind, assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
     textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true, ignoreLinePrefixes: [], ignoreLineRegex: '' },
     structuredOptions: { format: 'json', ignoreArrayOrder: false, ignoreCase: false },
     leftRoot: '', rightRoot: '', directoryOptions: { method: 'content', showHidden: true, respectGitignore: true, excludes: [] } }
@@ -25,7 +48,9 @@ function validDocument(v: unknown): v is TextDocument {
 function validSession(v: unknown): v is CompareSession {
   if (!v || typeof v !== 'object') return false
   const s = v as CompareSession
-  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured'].includes(s.kind) &&
+  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table'].includes(s.kind) &&
+    (s.assetSources === undefined || (!!s.assetSources && validAsset(s.assetSources.left) && validAsset(s.assetSources.right))) &&
+    (s.assetSettings === undefined || validAssetSettings(s.assetSettings)) &&
     validDocument(s.left) && validDocument(s.right) && typeof s.savedLeft === 'string' && typeof s.savedRight === 'string' &&
     typeof s.leftRoot === 'string' && typeof s.rightRoot === 'string' && !!s.textOptions && !!s.structuredOptions && !!s.directoryOptions &&
     (s.textOptions.ignoreLinePrefixes === undefined || (Array.isArray(s.textOptions.ignoreLinePrefixes) && s.textOptions.ignoreLinePrefixes.every(p => typeof p === 'string'))) &&

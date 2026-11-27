@@ -1,5 +1,5 @@
 export type Side = 'left' | 'right'
-export type CompareKind = 'text' | 'folder' | 'structured'
+export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table'
 export type Theme = 'dark' | 'black' | 'gray' | 'white' | 'light'
 export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt-BR' | 'ru' | 'ms' | 'id'
 export type Locale = 'system' | Language
@@ -108,7 +108,41 @@ export interface SyncResult {
   backupRoot: string | null
   errors: string[]
 }
+export interface AssetRef {
+  path: string | null
+  name: string
+  size: number
+  modified: string
+}
+export interface AssetSettings {
+  binaryOffset: number
+  binaryPageSize: number
+  imageMode: 'side' | 'overlay' | 'split' | 'heat'
+  imageTolerance: number
+  imageMix: number
+  tableDelimiter: 'auto' | ',' | '\t' | ';' | '|'
+  tableEncoding: string
+  tableHeader: boolean
+  tableColumnMode: 'position' | 'header'
+  tableRowMode: 'position' | 'key'
+  tableKey: string
+  tableIgnoreType: boolean
+  leftSheet: string
+  rightSheet: string
+}
+export interface BinaryStats {
+  compared: number
+  changed: number
+  leftOnly: number
+  rightOnly: number
+  firstDifference: number | null
+  lastDifference: number | null
+}
+export interface TableCell { value: string; kind: string }
+export interface TableSheet { rowStart: number; colStart: number; rows: (TableCell | null)[][] }
 export interface CompareSession {
+  assetSources?: Record<Side, AssetRef | null>
+  assetSettings?: AssetSettings
   id: string
   title: string
   kind: CompareKind
