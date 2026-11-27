@@ -1,7 +1,8 @@
 export type Side = 'left' | 'right'
 export type CompareKind = 'text' | 'folder' | 'structured'
-export type Theme = 'dark' | 'black' | 'gray' | 'light'
-export type Locale = 'system' | 'en' | 'zh-CN'
+export type Theme = 'dark' | 'black' | 'gray' | 'white' | 'light'
+export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt-BR' | 'ru' | 'ms' | 'id'
+export type Locale = 'system' | Language
 export type LineEnding = 'lf' | 'crlf' | 'cr' | 'mixed' | 'none'
 export interface TextDocument {
   path: string | null

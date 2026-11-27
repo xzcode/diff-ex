@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { translate } from '../lib/i18n'
+import type { Language } from '../contracts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, Columns2, Copy, FileCode2, FolderOpen, ListFilter, Rows3, Save, Search, Settings2, Undo2, WrapText } from 'lucide-vue-next'
 import type { CompareSession, Preferences, Side, TextDiffResult, TextDocument, TextOptions } from '../contracts'
@@ -7,7 +9,7 @@ import { isSideDirty } from '../lib/workspace'
 import { codeLanguages, languageForFile, monaco, setMonacoTheme } from '../lib/monaco'
 import { mergeLineChange } from '../lib/compare-ui-merge'
 
-const props = defineProps<{ session: CompareSession; preferences: Preferences; language: 'en' | 'zh-CN' }>()
+const props = defineProps<{ session: CompareSession; preferences: Preferences; language: Language }>()
 const emit = defineEmits<{
   change: [side: Side, content: string]
   open: [side: Side, encoding?: string]
@@ -15,8 +17,7 @@ const emit = defineEmits<{
   'update-options': [options: TextOptions]
   'update-document': [side: Side, patch: Partial<TextDocument>]
 }>()
-const zh = computed(() => props.language === 'zh-CN')
-const t = (en: string, cn: string) => zh.value ? cn : en
+const t = (key: string, ...args: (string | number)[]) => translate(props.language, key, ...args)
 const host = ref<HTMLDivElement>()
 const split = ref(true)
 const headerLeftPercent = ref(50)
@@ -149,12 +150,12 @@ function merge(target: Side) {
   if (!change) return
   const content = mergeLineChange(original.getValue(), modified.getValue(), change, target)
   replaceContents(target, content)
-  statusNote.value = t('Change applied. Undo is available.', '已应用差异，可撤销。')
+  statusNote.value = t('Change applied. Undo is available.')
 }
 function copyAll(target: Side) {
   const source = documentModel(target === 'left' ? 'right' : 'left')
   if (source) replaceContents(target, source.getValue())
-  statusNote.value = t('All text copied. Undo is available.', '已复制全部内容，可撤销。')
+  statusNote.value = t('All text copied. Undo is available.')
 }
 function undo() {
   contentEditor(activeSide.value)?.trigger('diff-ex', 'undo', null)
@@ -248,63 +249,63 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="text-workspace" :aria-label="t('Text comparison', '文本对比')">
+  <section class="text-workspace" :aria-label="t('Text comparison')">
     <div class="text-tools">
       <div class="tool-group">
-        <button class="btn-icon" :title="t('Previous difference (Shift+F7)', '上一处差异（Shift+F7）')" :aria-label="t('Previous difference', '上一处差异')" :disabled="!rawCount" @click="navigate(-1)"><ArrowUp :size="16" /></button>
-        <span class="hunk-counter" :title="t('Visual differences', '原文差异')">{{ currentLabel }}</span>
-        <button class="btn-icon" :title="t('Next difference (F7)', '下一处差异（F7）')" :aria-label="t('Next difference', '下一处差异')" :disabled="!rawCount" @click="navigate(1)"><ArrowDown :size="16" /></button>
+        <button class="btn-icon" :title="t('Previous difference (Shift+F7)')" :aria-label="t('Previous difference')" :disabled="!rawCount" @click="navigate(-1)"><ArrowUp :size="16" /></button>
+        <span class="hunk-counter" :title="t('Visual differences')">{{ currentLabel }}</span>
+        <button class="btn-icon" :title="t('Next difference (F7)')" :aria-label="t('Next difference')" :disabled="!rawCount" @click="navigate(1)"><ArrowDown :size="16" /></button>
       </div>
       <div class="tool-separator" />
       <div class="tool-group">
-        <button class="btn small" :disabled="!ready || current < 0" :title="t('Apply selected original-text difference to left', '将当前原文差异应用到左侧')" @click="merge('left')"><ArrowLeft :size="15" />{{ t('To left', '合并到左侧') }}</button>
-        <button class="btn small" :disabled="!ready || current < 0" :title="t('Apply selected original-text difference to right', '将当前原文差异应用到右侧')" @click="merge('right')">{{ t('To right', '合并到右侧') }}<ArrowRight :size="15" /></button>
-        <button class="btn-icon" :title="t('Undo in focused pane', '撤销当前侧的编辑')" :aria-label="t('Undo', '撤销')" @click="undo"><Undo2 :size="16" /></button>
+        <button class="btn small" :disabled="!ready || current < 0" :title="t('Apply selected original-text difference to left')" @click="merge('left')"><ArrowLeft :size="15" />{{ t('To left') }}</button>
+        <button class="btn small" :disabled="!ready || current < 0" :title="t('Apply selected original-text difference to right')" @click="merge('right')">{{ t('To right') }}<ArrowRight :size="15" /></button>
+        <button class="btn-icon" :title="t('Undo in focused pane')" :aria-label="t('Undo')" @click="undo"><Undo2 :size="16" /></button>
       </div>
       <div class="toolbar-spacer" />
-      <select v-model="syntax" class="syntax-select" :aria-label="t('Syntax language', '语法语言')"><option v-for="[value, label] in codeLanguages" :key="value" :value="value">{{ value === 'auto' ? t('Auto language', '自动语言') : label }}</option></select>
-      <button class="btn-icon" :title="t('Find in focused pane', '在当前侧查找')" :aria-label="t('Find', '查找')" @click="find"><Search :size="16" /></button>
-      <button class="btn-icon" :class="{ active: wrap }" :title="t('Word wrap', '自动换行')" :aria-label="t('Word wrap', '自动换行')" :aria-pressed="wrap" @click="wrap = !wrap"><WrapText :size="16" /></button>
-      <button class="btn-icon" :class="{ active: collapsed }" :title="t('Collapse unchanged regions', '折叠相同行')" :aria-label="t('Collapse unchanged regions', '折叠相同行')" :aria-pressed="collapsed" @click="collapsed = !collapsed"><ListFilter :size="16" /></button>
-      <button class="btn-icon" :title="split ? t('Switch to inline view', '切换为单栏视图') : t('Switch to side-by-side view', '切换为双栏视图')" :aria-label="t('Toggle comparison layout', '切换对比布局')" @click="split = !split"><Columns2 v-if="split" :size="16" /><Rows3 v-else :size="16" /></button>
-      <button class="btn small" :class="{ active: optionsVisible }" :aria-expanded="optionsVisible" @click="optionsVisible = !optionsVisible"><Settings2 :size="15" />{{ t('Rules', '对比规则') }}<ChevronDown :size="13" /></button>
+      <select v-model="syntax" class="syntax-select" :aria-label="t('Syntax language')"><option v-for="[value, label] in codeLanguages" :key="value" :value="value">{{ value === 'auto' ? t('Auto language') : value === 'plaintext' ? t('Text') : label }}</option></select>
+      <button class="btn-icon" :title="t('Find in focused pane')" :aria-label="t('Find')" @click="find"><Search :size="16" /></button>
+      <button class="btn-icon" :class="{ active: wrap }" :title="t('Word wrap')" :aria-label="t('Word wrap')" :aria-pressed="wrap" @click="wrap = !wrap"><WrapText :size="16" /></button>
+      <button class="btn-icon" :class="{ active: collapsed }" :title="t('Collapse unchanged regions')" :aria-label="t('Collapse unchanged regions')" :aria-pressed="collapsed" @click="collapsed = !collapsed"><ListFilter :size="16" /></button>
+      <button class="btn-icon" :title="split ? t('Switch to inline view') : t('Switch to side-by-side view')" :aria-label="t('Toggle comparison layout')" @click="split = !split"><Columns2 v-if="split" :size="16" /><Rows3 v-else :size="16" /></button>
+      <button class="btn small" :class="{ active: optionsVisible }" :aria-expanded="optionsVisible" @click="optionsVisible = !optionsVisible"><Settings2 :size="15" />{{ t('Rules') }}<ChevronDown :size="13" /></button>
     </div>
 
     <div v-if="optionsVisible" class="rules-panel">
-      <label>{{ t('Algorithm', '算法') }}<select :aria-label="t('Algorithm', '算法')" :value="session.textOptions.algorithm" @change="optionSelect($event, 'algorithm')"><option value="myers">Myers</option><option value="patience">Patience</option><option value="histogram">Histogram</option></select></label>
-      <label>{{ t('Whitespace', '空白字符') }}<select :aria-label="t('Whitespace', '空白字符')" :value="session.textOptions.whitespace" @change="optionSelect($event, 'whitespace')"><option value="none">{{ t('Compare all', '全部比较') }}</option><option value="trim">{{ t('Ignore edge whitespace', '忽略行首尾空白') }}</option><option value="all">{{ t('Ignore all whitespace', '忽略全部空白') }}</option></select></label>
-      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreCase" @change="updateOption('ignoreCase', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore case', '忽略大小写') }}</label>
-      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreBlankLines" @change="updateOption('ignoreBlankLines', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore blank lines', '忽略空行') }}</label>
-      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreLineEndings" @change="updateOption('ignoreLineEndings', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore line endings', '忽略换行符') }}</label>
-      <p class="rules-explanation">{{ t('Rules and algorithm control the result count below. The editor always shows original-text differences; merging copies original text.', '规则和算法影响下方统计。编辑器始终显示原文差异，合并时复制原始内容。') }}</p>
+      <label>{{ t('Algorithm') }}<select :aria-label="t('Algorithm')" :value="session.textOptions.algorithm" @change="optionSelect($event, 'algorithm')"><option value="myers">Myers</option><option value="patience">Patience</option><option value="histogram">Histogram</option></select></label>
+      <label>{{ t('Whitespace') }}<select :aria-label="t('Whitespace')" :value="session.textOptions.whitespace" @change="optionSelect($event, 'whitespace')"><option value="none">{{ t('Compare all') }}</option><option value="trim">{{ t('Ignore edge whitespace') }}</option><option value="all">{{ t('Ignore all whitespace') }}</option></select></label>
+      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreCase" @change="updateOption('ignoreCase', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore case') }}</label>
+      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreBlankLines" @change="updateOption('ignoreBlankLines', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore blank lines') }}</label>
+      <label class="check-label"><input type="checkbox" :checked="session.textOptions.ignoreLineEndings" @change="updateOption('ignoreLineEndings', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore line endings') }}</label>
+      <p class="rules-explanation">{{ t('Rules and algorithm control the result count below. The editor always shows original-text differences; merging copies original text.') }}</p>
     </div>
 
     <div class="file-headers" :style="{ gridTemplateColumns: `${headerLeftPercent}% 1fr` }">
       <div v-for="side in sides" :key="side" class="file-header" :class="side">
-        <span class="side-mark">{{ side === 'left' ? t('LEFT', '左侧') : t('RIGHT', '右侧') }}</span>
+        <span class="side-mark">{{ side === 'left' ? t('LEFT') : t('RIGHT') }}</span>
         <FileCode2 :size="17" class="file-symbol" />
-        <div class="file-identity"><strong :title="session[side].name">{{ session[side].name }}<span v-if="dirty(side)" class="dirty-dot" :title="t('Unsaved changes', '未保存更改')" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document · paste or open a file', '未保存文档 · 粘贴内容或打开文件') }}</span></div>
-        <button class="btn-icon" :title="t('Open file', '打开文件')" :aria-label="side === 'left' ? t('Open left file', '打开左侧文件') : t('Open right file', '打开右侧文件')" @click="emit('open', side)"><FolderOpen :size="16" /></button>
-        <button class="btn-icon" :title="t('Save file', '保存文件')" :aria-label="side === 'left' ? t('Save left file', '保存左侧文件') : t('Save right file', '保存右侧文件')" @click="emit('save', side)"><Save :size="16" /></button>
-        <details class="file-menu"><summary :aria-label="t('File options', '文件选项')"><ChevronDown :size="13" /></summary><div class="file-menu-popover">
-          <button @click="emit('open', side, session[side].encoding)">{{ t('Open using selected encoding…', '使用所选编码打开…') }}</button>
-          <button @click="emit('save', side, true)">{{ t('Save as…', '另存为…') }}</button>
-          <button @click="copyAll(side)"><Copy :size="14" />{{ side === 'left' ? t('Copy all right → left', '复制全部：右 → 左') : t('Copy all left → right', '复制全部：左 → 右') }}</button>
-          <label>{{ t('Save encoding', '保存编码') }}<select :aria-label="t('Save encoding', '保存编码')" :value="session[side].encoding.toLowerCase()" @change="setMetadata(side, 'encoding', $event)"><option value="utf-8">UTF-8</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option><option value="gbk">GBK</option><option value="gb18030">GB18030</option></select></label>
-          <label>{{ t('Save line endings', '保存换行符') }}<select :aria-label="t('Save line endings', '保存换行符')" :value="session[side].lineEnding" @change="setMetadata(side, 'lineEnding', $event)"><option value="lf">LF</option><option value="crlf">CRLF</option><option value="cr">CR</option><option v-if="session[side].lineEnding === 'mixed'" value="mixed" disabled>{{ t('Mixed — choose', '混合 — 请选择') }}</option><option v-if="session[side].lineEnding === 'none'" value="none">{{ t('No line ending', '无换行符') }}</option></select></label>
-          <label class="check-label"><input type="checkbox" :disabled="!session[side].encoding.toLowerCase().startsWith('utf')" :checked="session[side].bom" @change="emit('update-document', side, { bom: ($event.target as HTMLInputElement).checked })" />{{ t('Write BOM', '写入 BOM') }}</label>
+        <div class="file-identity"><strong :title="session[side].name">{{ session[side].name === 'Untitled' && !session[side].path ? t('Untitled') : session[side].name }}<span v-if="dirty(side)" class="dirty-dot" :title="t('Unsaved changes')" /></strong><span :title="session[side].path || ''">{{ session[side].path || t('Unsaved document · paste or open a file') }}</span></div>
+        <button class="btn-icon" :title="t('Open file')" :aria-label="side === 'left' ? t('Open left file') : t('Open right file')" @click="emit('open', side)"><FolderOpen :size="16" /></button>
+        <button class="btn-icon" :title="t('Save file')" :aria-label="side === 'left' ? t('Save left file') : t('Save right file')" @click="emit('save', side)"><Save :size="16" /></button>
+        <details class="file-menu"><summary :aria-label="t('File options')"><ChevronDown :size="13" /></summary><div class="file-menu-popover">
+          <button @click="emit('open', side, session[side].encoding)">{{ t('Open using selected encoding…') }}</button>
+          <button @click="emit('save', side, true)">{{ t('Save as…') }}</button>
+          <button @click="copyAll(side)"><Copy :size="14" />{{ side === 'left' ? t('Copy all right → left') : t('Copy all left → right') }}</button>
+          <label>{{ t('Save encoding') }}<select :aria-label="t('Save encoding')" :value="session[side].encoding.toLowerCase()" @change="setMetadata(side, 'encoding', $event)"><option value="utf-8">UTF-8</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option><option value="gbk">GBK</option><option value="gb18030">GB18030</option></select></label>
+          <label>{{ t('Save line endings') }}<select :aria-label="t('Save line endings')" :value="session[side].lineEnding" @change="setMetadata(side, 'lineEnding', $event)"><option value="lf">LF</option><option value="crlf">CRLF</option><option value="cr">CR</option><option v-if="session[side].lineEnding === 'mixed'" value="mixed" disabled>{{ t('Mixed — choose') }}</option><option v-if="session[side].lineEnding === 'none'" value="none">{{ t('No line ending') }}</option></select></label>
+          <label class="check-label"><input type="checkbox" :disabled="!session[side].encoding.toLowerCase().startsWith('utf')" :checked="session[side].bom" @change="emit('update-document', side, { bom: ($event.target as HTMLInputElement).checked })" />{{ t('Write BOM') }}</label>
         </div></details>
       </div>
     </div>
-    <div v-if="session.left.lineEnding === 'mixed' || session.right.lineEnding === 'mixed'" class="mixed-note">{{ t('Mixed line endings detected. Editing normalizes line endings; choose LF, CRLF or CR in file options before saving.', '检测到混合换行符。编辑后会统一换行格式，保存前请在文件选项中选择 LF、CRLF 或 CR。') }}</div>
+    <div v-if="session.left.lineEnding === 'mixed' || session.right.lineEnding === 'mixed'" class="mixed-note">{{ t('Mixed line endings detected. Editing normalizes line endings; choose LF, CRLF or CR in file options before saving.') }}</div>
     <div v-if="error" class="compare-error" role="alert">{{ error }}</div>
     <div ref="host" class="monaco-host" />
-    <div class="file-statuses" :style="{ gridTemplateColumns: `${headerLeftPercent}% 1fr` }"><div v-for="side in sides" :key="side"><span>{{ lineCount(session[side].content).toLocaleString() }} {{ t('lines', '行') }}</span><span>{{ session[side].encoding.toUpperCase() }}{{ session[side].bom ? ' BOM' : '' }}</span><span>{{ session[side].lineEnding.toUpperCase() }}</span><span v-if="activeSide === side" class="cursor-info">{{ t('Ln', '行') }} {{ cursor.line }}, {{ t('Col', '列') }} {{ cursor.column }}</span></div></div>
+    <div class="file-statuses" :style="{ gridTemplateColumns: `${headerLeftPercent}% 1fr` }"><div v-for="side in sides" :key="side"><span>{{ lineCount(session[side].content).toLocaleString() }} {{ t('lines') }}</span><span>{{ session[side].encoding.toUpperCase() }}{{ session[side].bom ? ' BOM' : '' }}</span><span>{{ session[side].lineEnding.toUpperCase() }}</span><span v-if="activeSide === side" class="cursor-info">{{ t('Ln') }} {{ cursor.line }}, {{ t('Col') }} {{ cursor.column }}</span></div></div>
     <div class="comparison-summary" aria-live="polite">
-      <span v-if="busy" class="muted">{{ t('Comparing…', '正在比较…') }}</span>
-      <template v-else-if="result"><span v-if="result.equal" class="equal-status"><Check :size="14" />{{ rulesActive ? t('Equal under current rules', '按当前规则内容相同') : t('Contents are equal', '内容相同') }}</span><template v-else><span class="stat added">+{{ result.added }} {{ t('added', '新增') }}</span><span class="stat removed">−{{ result.removed }} {{ t('removed', '删除') }}</span><span class="stat modified">{{ result.modified }} {{ t('modified', '修改') }}</span><span class="muted">{{ result.hunks.length }} {{ t('change blocks', '个差异块') }}</span></template></template>
-      <span v-if="rulesActive" class="rule-badge">{{ t('Rules applied to count', '统计已应用规则') }}</span>
-      <span class="toolbar-spacer" /><span class="status-note">{{ statusNote || t('F7 next change · edits are saved only when you choose Save', 'F7 跳转差异 · 点击保存后才会写入文件') }}</span>
+      <span v-if="busy" class="muted">{{ t('Comparing…') }}</span>
+      <template v-else-if="result"><span v-if="result.equal" class="equal-status"><Check :size="14" />{{ rulesActive ? t('Equal under current rules') : t('Contents are equal') }}</span><template v-else><span class="stat added">+{{ result.added }} {{ t('added') }}</span><span class="stat removed">−{{ result.removed }} {{ t('removed') }}</span><span class="stat modified">{{ result.modified }} {{ t('modified') }}</span><span class="muted">{{ result.hunks.length }} {{ t('change blocks') }}</span></template></template>
+      <span v-if="rulesActive" class="rule-badge">{{ t('Rules applied to count') }}</span>
+      <span class="toolbar-spacer" /><span class="status-note">{{ statusNote || t('F7 next change · edits are saved only when you choose Save') }}</span>
     </div>
   </section>
 </template>

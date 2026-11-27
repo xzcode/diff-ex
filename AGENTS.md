@@ -2,7 +2,7 @@
 
 ## Product
 
-Diff EX is a local offline desktop comparison tool in the EX family. Follow `docs/ROADMAP.md` for actual milestone status. Planned features must not be advertised as implemented. README.md is English by default; maintain README.zh-CN.md alongside meaningful user-facing changes. UI supports system language detection, English and Simplified Chinese.
+Diff EX is a local offline desktop comparison tool in the EX family. Follow `docs/ROADMAP.md` for actual milestone status. Planned features must not be advertised as implemented. README.md is English by default; maintain README.zh-CN.md alongside meaningful user-facing changes. UI uses the local message catalog with system language detection. Keep translations and theme options compatible with saved workspaces. Do not change English-default bilingual README navigation.
 
 ## Layout
 

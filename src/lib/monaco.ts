@@ -18,9 +18,10 @@ self.MonacoEnvironment = {
 
 const palette: Record<Theme, { base: 'vs' | 'vs-dark'; background: string; foreground: string; gutter: string; border: string; selection: string }> = {
   dark: { base: 'vs-dark', background: '#151b25', foreground: '#d7dfec', gutter: '#647186', border: '#263140', selection: '#334d72' },
-  black: { base: 'vs-dark', background: '#050505', foreground: '#e4e4e7', gutter: '#71717a', border: '#242428', selection: '#34344c' },
+  black: { base: 'vs-dark', background: '#000000', foreground: '#e4e4e7', gutter: '#71717a', border: '#242428', selection: '#34344c' },
   gray: { base: 'vs-dark', background: '#2a2c30', foreground: '#e2e4e9', gutter: '#90959f', border: '#42454d', selection: '#455065' },
-  light: { base: 'vs', background: '#f6f5f1', foreground: '#293343', gutter: '#87909c', border: '#dedfdc', selection: '#d9e5f5' },
+  white: { base: 'vs', background: '#ffffff', foreground: '#202936', gutter: '#687585', border: '#d6dce4', selection: '#d5e5ff' },
+  light: { base: 'vs', background: '#faf8f3', foreground: '#333b46', gutter: '#717782', border: '#ddd9d1', selection: '#dce5f4' },
 }
 
 for (const [name, colors] of Object.entries(palette)) {
@@ -35,16 +36,18 @@ for (const [name, colors] of Object.entries(palette)) {
       'editorLineNumber.activeForeground': colors.foreground,
       'editor.selectionBackground': colors.selection,
       'editor.inactiveSelectionBackground': `${colors.selection}88`,
-      'editor.lineHighlightBackground': name === 'light' ? '#1f293705' : '#ffffff04',
+      'editor.lineHighlightBackground': colors.base === 'vs' ? '#1f293705' : '#ffffff04',
       'editorGutter.background': colors.background,
       'editorWidget.background': colors.background,
       'editorWidget.border': colors.border,
       'editorOverviewRuler.border': colors.border,
+      'editor.lineHighlightBorder': '#00000000',
+      'editorWidget.foreground': colors.foreground,
       'diffEditor.border': colors.border,
-      'diffEditor.insertedTextBackground': name === 'light' ? '#168a5633' : '#29b8762a',
-      'diffEditor.removedTextBackground': name === 'light' ? '#d94b6033' : '#ed667c28',
-      'diffEditor.insertedLineBackground': name === 'light' ? '#168a5612' : '#29b87610',
-      'diffEditor.removedLineBackground': name === 'light' ? '#d94b6012' : '#ed667c10',
+      'diffEditor.insertedTextBackground': colors.base === 'vs' ? '#168a5633' : '#29b8762a',
+      'diffEditor.removedTextBackground': colors.base === 'vs' ? '#d94b6033' : '#ed667c28',
+      'diffEditor.insertedLineBackground': colors.base === 'vs' ? '#168a5612' : '#29b87610',
+      'diffEditor.removedLineBackground': colors.base === 'vs' ? '#d94b6012' : '#ed667c10',
     },
   })
 }

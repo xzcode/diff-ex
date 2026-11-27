@@ -1,3 +1,4 @@
+import { isLocale } from './i18n'
 import type { CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
 
 export interface SavedSession { id: string; name: string; savedAt: string; session: CompareSession }
@@ -42,7 +43,7 @@ export function decodeWorkspace(text: string): Workspace {
     throw new Error('The workspace has an unsupported version or malformed session data.')
   }
   const p = w.preferences
-  if (!p || !['dark', 'black', 'gray', 'light'].includes(p.theme) || !['system', 'en', 'zh-CN'].includes(p.locale) ||
+  if (!p || !['dark', 'black', 'gray', 'white', 'light'].includes(p.theme) || !isLocale(p.locale) ||
     !Number.isFinite(p.fontSize) || p.fontSize < 8 || p.fontSize > 40 || typeof p.wordWrap !== 'boolean' || typeof p.showSidebar !== 'boolean') throw new Error('Invalid workspace preferences')
   if (new Set(w.sessions.map(s => s.id)).size !== w.sessions.length) throw new Error('Duplicate session identifiers')
   w.activeId = w.sessions.some(s => s.id === w.activeId) ? w.activeId : w.sessions[0]?.id || ''
