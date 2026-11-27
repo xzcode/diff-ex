@@ -22,6 +22,7 @@ const checks = []
 let browser
 let page
 let server
+let lastInputAttempt
 await mkdir(artifacts, { recursive: true })
 
 async function screenshot(name) {
@@ -53,12 +54,20 @@ async function waitEnabled(locator) {
   throw new Error('Comparison did not finish rendering its first mergeable hunk.')
 }
 const activeView = () => page.locator('.session-view:visible')
+async function pasteText(text) {
+  // Input.insertText is typed input to Monaco: multiline text can trigger
+  // on-enter indentation and automatic closing brackets. A real clipboard
+  // paste uses Monaco's paste path and must preserve the supplied document.
+  await page.evaluate(value => navigator.clipboard.writeText(value), text)
+  await page.keyboard.press('ControlOrMeta+V')
+}
 async function typeSource(side, text) {
   const pane = activeView().locator('.structure-editors .monaco-editor').nth(side === 'left' ? 0 : 1)
   await pane.locator('textarea.inputarea, .native-edit-context').first().focus()
   await page.keyboard.press('ControlOrMeta+A')
-  await page.keyboard.insertText(text)
-  await waitState(w => w?.sessions.find(s => s.id === w.activeId)?.[side].content === text, `edited ${side} source`)
+  lastInputAttempt = { side, method: 'clipboard-paste', expected: text }
+  await pasteText(text)
+  await waitState(w => w?.sessions.find(s => s.id === w.activeId)?.[side].content === text, `pasted ${side} source`)
 }
 async function openSettings() {
   await page.getByRole('button', { name: 'Settings', exact: true }).click()
@@ -84,6 +93,7 @@ try {
     ...(process.env.UI_CHROMIUM_PATH ? { executablePath: process.env.UI_CHROMIUM_PATH } : {}),
   })
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'en-US', acceptDownloads: true })
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(baseUrl).origin })
   page = await context.newPage()
   page.on('pageerror', cause => errors.push(cause.message))
   page.on('dialog', dialog => { void dialog.accept() })
@@ -218,8 +228,10 @@ try {
   const canonicalText = await renderedCanonical.textContent()
   await canonicalInput.focus()
   await page.keyboard.press('ControlOrMeta+A')
-  await page.keyboard.insertText('SHOULD_NOT_EDIT_CANONICAL')
-  assert.equal(await renderedCanonical.textContent(), canonicalText, 'Canonical content must reject edits.')
+  await pasteText('SHOULD_NOT_EDIT_CANONICAL')
+  assert.equal(await renderedCanonical.textContent(), canonicalText, 'Canonical content must reject pasted edits.')
+  await page.keyboard.insertText('x')
+  assert.equal(await renderedCanonical.textContent(), canonicalText, 'Canonical content must reject ordinary typing.')
   await page.getByRole('button', { name: 'Original', exact: true }).click()
   assert.equal((await activeSession()).left.content, canonicalState.left.content)
   assert.equal((await activeSession()).right.content, canonicalState.right.content)
@@ -236,7 +248,15 @@ try {
   console.log(checks.map(check => `PASS ${check}`).join('\n'))
 } catch (cause) {
   if (page) await screenshot('failure').catch(() => {})
-  await writeFile(resolve(artifacts, 'report.json'), JSON.stringify({ ok: false, checks, errors, failure: String(cause), serverLog: serverLog.join('') }, null, 2))
+  // Only this smoke test's synthetic editor fixture is included. Keeping the
+  // expected and persisted bytes makes input-path regressions diagnosable.
+  let inputDiagnostics
+  if (page && lastInputAttempt) {
+    const current = await activeSession().catch(() => undefined)
+    const observed = current?.[lastInputAttempt.side]?.content
+    inputDiagnostics = { ...lastInputAttempt, observed, expectedLength: lastInputAttempt.expected.length, observedLength: observed?.length, activeSessionKind: current?.kind }
+  }
+  await writeFile(resolve(artifacts, 'report.json'), JSON.stringify({ ok: false, checks, errors, failure: String(cause), inputDiagnostics, serverLog: serverLog.join('') }, null, 2))
   console.error(cause)
   process.exitCode = 1
 } finally {
