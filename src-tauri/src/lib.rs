@@ -1,4 +1,4 @@
-use diff_ex_core::{directories, files, structured, sync, text};
+use diff_ex_core::{assets, directories, files, structured, sync, text, workbooks};
 use std::{
     collections::HashMap,
     fs,
@@ -33,6 +33,54 @@ impl AppState {
     }
 }
 
+#[tauri::command]
+async fn inspect_asset(path: String) -> Result<assets::AssetRef, String> {
+    tauri::async_runtime::spawn_blocking(move || assets::inspect_asset(&path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn read_asset_chunk(
+    asset: assets::AssetRef,
+    offset: u64,
+    length: usize,
+) -> Result<tauri::ipc::Response, String> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        assets::read_asset_chunk(&asset, offset, length)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+#[tauri::command]
+async fn compare_binary_assets(
+    state: State<'_, AppState>,
+    left: assets::AssetRef,
+    right: assets::AssetRef,
+    job_id: String,
+) -> Result<assets::BinaryStats, String> {
+    let cancel = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        assets::compare_binary(&left, &right, &cancel)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r);
+    state.finish(&job_id);
+    result
+}
+#[tauri::command]
+async fn workbook_sheets(asset: assets::AssetRef) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || workbooks::sheet_names(&asset))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
+async fn workbook_sheet(asset: assets::AssetRef, sheet: String) -> Result<workbooks::TableSheet, String> {
+    tauri::async_runtime::spawn_blocking(move || workbooks::read_sheet(&asset, &sheet))
+        .await
+        .map_err(|e| e.to_string())?
+}
 #[tauri::command]
 async fn read_text_file(
     path: String,
@@ -242,6 +290,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
+            inspect_asset,
+            read_asset_chunk,
+            compare_binary_assets,
+            workbook_sheets,
+            workbook_sheet,
             read_text_file,
             inspect_save_target,
             save_text_file,
