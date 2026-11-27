@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { mergeJsonNode } from '../lib/json-node-merge'
 import { translate } from '../lib/i18n'
 import type { Language } from '../contracts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeftRight, Braces, Check, ChevronDown, Code2, FileJson2, FolderOpen, ListFilter, Save, Search, X } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Undo2, ArrowLeftRight, Braces, Check, ChevronDown, Code2, FileJson2, FolderOpen, ListFilter, Save, Search, X } from 'lucide-vue-next'
 import type { CompareSession, Preferences, Side, StructureChange, StructuredOptions, StructuredResult, TextDocument } from '../contracts'
 import { compareStructured } from '../lib/bridge'
 import { isSideDirty } from '../lib/workspace'
@@ -32,6 +33,10 @@ const error = ref('')
 const search = ref('')
 const kindFilter = ref('all')
 const selected = ref<StructureChange>()
+const mergeError = ref('')
+const mergeSide = ref<Side>('right')
+const canMerge = computed(() => !canonical.value && !busy.value && !!selected.value && props.session.structuredOptions.format === 'json' && !!result.value)
+let comparedSources: { left: string; right: string; options: string } | undefined
 const scrollTop = ref(0)
 const listHeight = ref(250)
 const rowHeight = 44
@@ -106,6 +111,7 @@ function scheduleCompare() {
   busy.value = true
   error.value = ''
   result.value = undefined
+  comparedSources = undefined
   selected.value = undefined
   const untouchedDraft = sides.every(side => props.session[side].content === '' && props.session[side].path === null && props.session[side].name === 'Untitled')
   if (untouchedDraft) {
@@ -116,8 +122,11 @@ function scheduleCompare() {
   }
   timer = setTimeout(async () => {
     try {
-      const next = await compareStructured(props.session.left.content, props.session.right.content, { ...props.session.structuredOptions })
+      const left = props.session.left.content, right = props.session.right.content
+      const options = { ...props.session.structuredOptions }
+      const next = await compareStructured(left, right, options)
       if (!alive || thisRequest !== requestId) return
+      comparedSources = { left, right, options: JSON.stringify(options) }
       result.value = next
       canonicals.left?.setValue(next.leftCanonical)
       canonicals.right?.setValue(next.rightCanonical)
@@ -160,7 +169,34 @@ function dragSplit(event: PointerEvent, direction: 'horizontal' | 'vertical') {
   target.addEventListener('pointercancel', end)
   dragCleanup = end
 }
-function selectChange(change: StructureChange) { selected.value = change }
+function selectChange(change: StructureChange) { selected.value = change; mergeError.value = '' }
+function mergeSelected(target: Side) {
+  if (!canMerge.value || !selected.value || !comparedSources) return
+  mergeError.value = ''
+  const left = originals.left?.getValue(), right = originals.right?.getValue()
+  if (left === undefined || right === undefined || left !== comparedSources.left || right !== comparedSources.right || JSON.stringify(props.session.structuredOptions) !== comparedSources.options) {
+    mergeError.value = t('Comparison changed. Compare again before merging.')
+    scheduleCompare()
+    return
+  }
+  const editor = editorFor(target), model = originals[target]
+  if (!editor || !model) return
+  try {
+    const edit = mergeJsonNode(target === 'left' ? right : left, target === 'left' ? left : right, selected.value.path)
+    const start = model.getPositionAt(edit.offset), end = model.getPositionAt(edit.offset + edit.length)
+    editor.pushUndoStop()
+    editor.executeEdits('diff-ex.node-merge', [{ range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: edit.text, forceMoveMarkers: true }])
+    editor.pushUndoStop()
+    mergeSide.value = target
+    editor.focus()
+  } catch (cause) {
+    mergeError.value = String(cause instanceof Error ? cause.message : cause)
+  }
+}
+function undoNodeMerge() {
+  if (canonical.value) return
+  editorFor(mergeSide.value)?.trigger('diff-ex', 'undo', null)
+}
 function resetList() {
   scrollTop.value = 0
   if (listHost.value) listHost.value.scrollTop = 0
@@ -239,6 +275,7 @@ onBeforeUnmount(() => {
       <label class="check-label" :class="{ disabled: session.structuredOptions.format === 'xml' }" :title="t('Applies to JSON and YAML arrays. XML element order is preserved.')"><input type="checkbox" :disabled="session.structuredOptions.format === 'xml'" :checked="session.structuredOptions.ignoreArrayOrder && session.structuredOptions.format !== 'xml'" @change="updateOption('ignoreArrayOrder', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore array order') }}</label>
       <label class="check-label" :title="t('Ignore case in string values; keys and element names stay case-sensitive.')"><input type="checkbox" :checked="session.structuredOptions.ignoreCase" @change="updateOption('ignoreCase', ($event.target as HTMLInputElement).checked)" />{{ t('Ignore value case') }}</label>
       <span class="spacer" />
+      <button class="btn-icon" :disabled="canonical" :title="t('Undo')" :aria-label="t('Undo')" @click="undoNodeMerge"><Undo2 :size="16" /></button>
       <div class="view-switch"><button :class="{ active: !canonical }" @click="canonical = false"><Code2 :size="14" />{{ t('Original') }}</button><button :class="{ active: canonical }" @click="canonical = true"><FileJson2 :size="14" />{{ t('Canonical JSON') }}</button></div>
     </div>
     <div class="semantic-note"><ArrowLeftRight :size="13" /><span>{{ canonical ? t('Read-only comparison representation. Saving always writes the original document.') : t('Object key order is ignored. Types, values and ordered collections are compared.') }}</span></div>
@@ -249,7 +286,8 @@ onBeforeUnmount(() => {
     <div class="results-toolbar"><strong>{{ t('Semantic changes') }}</strong><span v-if="busy" class="muted">{{ t('Comparing…') }}</span><template v-else-if="result"><span v-if="result.equal" class="equal-status"><Check :size="14" />{{ t('Structurally equal') }}</span><template v-else><span class="stat added">+{{ counts.added }}</span><span class="stat removed">−{{ counts.removed }}</span><span class="stat changed">{{ counts.changed }} {{ t('changed') }}</span></template></template><span class="spacer" /><label class="filter-search"><Search :size="13" /><input v-model="search" :placeholder="t('Search paths or values')" :aria-label="t('Search semantic changes')" /><button v-if="search" :aria-label="t('Clear search')" @click="search = ''"><X :size="12" /></button></label><ListFilter :size="14" class="muted" /><select v-model="kindFilter" :aria-label="t('Filter change type')"><option value="all">{{ t('All changes') }}</option><option value="added">{{ t('Added') }}</option><option value="removed">{{ t('Removed') }}</option><option value="changed">{{ t('Changed') }}</option><option value="typeChanged">{{ t('Type changed') }}</option></select></div>
     <div v-if="error" class="parse-error" role="alert"><strong>{{ t('Cannot compare this document') }}</strong><pre>{{ error }}</pre></div>
     <template v-else><div class="change-table-head"><span>{{ t('Change') }}</span><span>{{ t('Path') }}</span><span>{{ t('Left value') }}</span><span>{{ t('Right value') }}</span></div><div ref="listHost" class="change-list" role="list" :aria-label="t('Semantic differences')" @scroll="scrollTop = ($event.target as HTMLElement).scrollTop"><div v-if="!filtered.length" class="no-changes"><template v-if="busy">{{ t('Parsing and comparing documents…') }}</template><template v-else-if="search || kindFilter !== 'all'">{{ t('No changes match this filter.') }}</template><template v-else-if="result?.equal"><Check :size="24" /><strong>{{ t('Same structure, same values') }}</strong><span>{{ t('Formatting and object key order do not affect this result.') }}</span></template><template v-else>{{ t('Open or paste two documents to compare.') }}</template></div><div v-else :style="{ height: `${filtered.length * rowHeight}px`, position: 'relative' }"><div :style="{ transform: `translateY(${startRow * rowHeight}px)` }"><button v-for="(change, index) in visible" :key="`${startRow + index}:${change.path}`" class="change-row" :class="{ selected: selected === change }" :style="{ height: `${rowHeight}px` }" role="listitem" @click="selectChange(change)"><span class="kind-pill" :class="change.kind">{{ changeLabel(change.kind) }}</span><code class="change-path" :title="change.path || '/'">{{ change.path || '/' }}</code><code class="change-value" :class="{ missing: change.left === null }" :title="change.left || ''">{{ change.left === null ? t('Absent') : change.left }}</code><code class="change-value" :class="{ missing: change.right === null }" :title="change.right || ''">{{ change.right === null ? t('Absent') : change.right }}</code></button></div></div></div></template>
-    <div v-if="selected && !error" class="change-detail"><div class="detail-heading"><strong>{{ changeLabel(selected.kind) }}</strong><code>{{ selected.path || '/' }}</code><span class="spacer" /><button class="btn-icon" :aria-label="t('Close change details')" @click="selected = undefined"><X :size="14" /></button></div><div class="detail-values"><div><span>{{ t('LEFT') }}</span><pre>{{ selected.left === null ? t('Absent') : selected.left }}</pre></div><div><span>{{ t('RIGHT') }}</span><pre>{{ selected.right === null ? t('Absent') : selected.right }}</pre></div></div></div>
+    <div v-if="mergeError" class="notice" role="status">{{ mergeError }}</div>
+    <div v-if="selected && !error" class="change-detail"><div class="detail-heading"><strong>{{ changeLabel(selected.kind) }}</strong><code>{{ selected.path || '/' }}</code><span class="spacer" /><template v-if="session.structuredOptions.format === 'json'"><button class="btn" :disabled="!canMerge" @click="mergeSelected('left')"><ArrowLeft :size="14" />{{ t('To left') }}</button><button class="btn" :disabled="!canMerge" @click="mergeSelected('right')">{{ t('To right') }}<ArrowRight :size="14" /></button></template><button class="btn-icon" :aria-label="t('Close change details')" @click="selected = undefined"><X :size="14" /></button></div><div class="detail-values"><div><span>{{ t('LEFT') }}</span><pre>{{ selected.left === null ? t('Absent') : selected.left }}</pre></div><div><span>{{ t('RIGHT') }}</span><pre>{{ selected.right === null ? t('Absent') : selected.right }}</pre></div></div></div>
     <div class="structure-footer"><span>{{ filtered.length.toLocaleString() }} {{ t('matching changes') }}</span><span>{{ t('Paths use JSON Pointer escaping · click a row for full values') }}</span></div>
   </section>
 </template>
@@ -257,4 +295,5 @@ onBeforeUnmount(() => {
 <style scoped>
 .structure-workspace{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:var(--panel)}.structure-toolbar{display:flex;align-items:center;gap:18px;padding:10px 14px;min-height:48px;border-bottom:1px solid var(--border);flex-wrap:wrap}.format-control{display:flex;gap:8px;align-items:center;color:var(--accent)}.format-control select{font-size:12px;padding:5px 24px 5px 8px;min-height:29px}.check-label{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:11px}.check-label input{accent-color:var(--accent);width:14px;height:14px;min-height:0;margin:0}.disabled{opacity:.45}.spacer{flex:1}.view-switch{display:flex;padding:3px;background:var(--bg);border:1px solid var(--border);border-radius:6px}.view-switch button{display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 9px;background:transparent;border:0;border-radius:4px;color:var(--muted)}.view-switch button.active{color:var(--text);background:var(--panel-alt);box-shadow:0 1px 4px #0001}.semantic-note{padding:7px 15px;display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--panel-alt)}.file-headers{display:grid}.file-header{position:relative;display:flex;align-items:center;padding:9px 12px;gap:8px;min-width:0;border-bottom:1px solid var(--border);background:var(--panel-alt)}.file-header:first-child{border-right:1px solid var(--border)}.side-mark{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted)}.file-name{display:flex;flex-direction:column;flex:1;min-width:0;gap:3px}.file-name strong{font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-name>span{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.encoding-badge{font-size:9px;color:var(--muted);white-space:nowrap}.dirty-dot{width:6px;height:6px;background:var(--amber);border-radius:50%;display:inline-block;flex-shrink:0}.btn-icon{display:flex;align-items:center;justify-content:center;gap:4px;padding:0;width:28px;height:28px;border-radius:4px;flex-shrink:0}.structure-editors{display:grid;min-height:0;flex-shrink:1;flex-grow:0;overflow:hidden}.code-host{min-height:0;min-width:0;overflow:hidden}.horizontal-handle{background:var(--border);cursor:col-resize;touch-action:none}.vertical-handle{height:5px;flex-shrink:0;cursor:row-resize;touch-action:none;background:var(--border)}.horizontal-handle:hover,.vertical-handle:hover,.horizontal-handle:focus,.vertical-handle:focus{background:var(--accent)}.results-toolbar{display:flex;align-items:center;gap:12px;padding:10px 14px;flex-wrap:wrap;border-bottom:1px solid var(--border);font-size:11px}.results-toolbar>strong{font-size:12px;font-weight:600}.results-toolbar>select{font-size:11px;padding:5px;max-width:132px;min-height:27px}.equal-status{color:var(--green);display:flex;gap:5px;align-items:center}.stat.added{color:var(--green)}.stat.removed{color:var(--red)}.stat.changed{color:var(--amber)}.muted{color:var(--muted)}.filter-search{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);padding:4px 7px;border-radius:5px;color:var(--muted)}.filter-search input{border:0!important;background:transparent;box-shadow:none;outline:0;min-height:20px;padding:0;font-size:11px;width:155px;color:var(--text)}.filter-search button{border:0;background:transparent;color:var(--muted);display:flex;padding:0}.change-table-head,.change-row{display:grid;grid-template-columns:100px minmax(120px,1.2fr) minmax(90px,1fr) minmax(90px,1fr);align-items:center;gap:14px;padding:0 14px}.change-table-head{font-size:10px;color:var(--muted);height:30px;min-height:30px;background:var(--panel-alt);border-bottom:1px solid var(--border)}.change-list{flex:1;min-height:0;overflow:auto}.change-row{width:100%;background:transparent;border:0;border-bottom:1px solid var(--border);text-align:left;cursor:pointer;border-radius:0;color:var(--text);font-size:11px;box-sizing:border-box}.change-row:hover,.change-row.selected{background:color-mix(in srgb,var(--accent) 8%,var(--panel))}.kind-pill{justify-self:start;font-size:9px;padding:3px 6px;border-radius:3px;font-weight:600;white-space:nowrap}.kind-pill.added{color:var(--green);background:color-mix(in srgb,var(--green) 12%,transparent)}.kind-pill.removed{color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}.kind-pill.changed,.kind-pill.typeChanged{color:var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent)}.change-path,.change-value{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.change-path{color:var(--accent)}.change-value.missing{color:var(--muted);font-style:italic}.no-changes{padding:25px;min-height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);font-size:11px;text-align:center;box-sizing:border-box}.no-changes>svg{color:var(--green)}.no-changes>strong{font-size:13px;color:var(--text);font-weight:550}.parse-error{padding:16px;color:var(--red);font-size:12px;background:color-mix(in srgb,var(--red) 7%,var(--panel));flex:1;overflow:auto}.parse-error pre{font-size:12px;white-space:pre-wrap;line-height:1.6;font-family:inherit}.change-detail{flex-shrink:0;max-height:35%;border-top:1px solid var(--border);background:var(--panel-alt);overflow:auto}.detail-heading{display:flex;gap:12px;align-items:center;padding:5px 14px;font-size:11px;border-bottom:1px solid var(--border)}.detail-heading code{color:var(--accent);overflow:hidden;text-overflow:ellipsis}.detail-values{display:grid;grid-template-columns:1fr 1fr}.detail-values>div{min-width:0;padding:10px 14px}.detail-values>div:first-child{border-right:1px solid var(--border)}.detail-values span{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted)}.detail-values pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5;margin:7px 0 0;user-select:text}.structure-footer{display:flex;justify-content:space-between;gap:16px;padding:8px 14px;font-size:10px;color:var(--muted);border-top:1px solid var(--border);flex-shrink:0}.file-menu{position:static}.file-menu summary{cursor:pointer;display:flex;width:18px;height:28px;align-items:center;justify-content:center;list-style:none;border-radius:4px;color:var(--muted)}.file-menu summary::-webkit-details-marker{display:none}.file-menu-popover{position:absolute;top:calc(100% - 2px);right:8px;z-index:12;width:225px;max-width:calc(100% - 16px);max-height:35vh;overflow:auto;box-shadow:0 12px 30px #0004;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:8px;display:flex;flex-direction:column;gap:4px}.file-menu-popover button{background:transparent;border:0;padding:8px;text-align:left;font-size:12px;color:var(--text);border-radius:4px}.file-menu-popover button:hover{background:var(--panel-alt)}.file-menu-popover label:not(.check-label){display:flex;flex-direction:column;gap:6px;padding:8px;font-size:11px;color:var(--muted)}.file-menu-popover select{font-size:12px;padding:6px;color:var(--text)}.file-menu-popover .check-label{padding:8px}.mixed-note{padding:7px 14px;color:var(--amber);font-size:11px;background:color-mix(in srgb,var(--amber) 7%,var(--panel));line-height:1.5;border-bottom:1px solid var(--border)}
 @media(max-width:950px){.encoding-badge{display:none}.structure-toolbar{gap:10px}.change-table-head,.change-row{grid-template-columns:85px minmax(110px,1.1fr) minmax(70px,1fr) minmax(70px,1fr);gap:9px;padding-left:10px;padding-right:10px}.structure-footer span:last-child{display:none}.side-mark{display:none}.file-header{padding:9px 8px;gap:6px}.results-toolbar{gap:7px}.filter-search input{width:125px}}
+.detail-heading{flex-wrap:wrap}.detail-heading .btn{min-height:28px;height:28px;font-size:11px}.detail-heading code{max-width:40%;white-space:nowrap}
 </style>
