@@ -357,8 +357,7 @@ try {
     await activeView().locator('.image-single canvas').waitFor()
   }
   await screenshot('07-image-heatmap')
-  await activeView().getByLabel('Tolerance',{exact:true}).fill('255')
-  await activeView().getByLabel('Tolerance',{exact:true}).dispatchEvent('change')
+  await activeView().getByLabel('Tolerance',{exact:true}).press('End')
   await activeView().locator('.asset-status').filter({hasText:'Equal under current rules'}).waitFor()
   checks.push('Real PNG decoding, exact pixel differences, overlay/split/heatmap and channel tolerance.')
 
