@@ -1,0 +1,95 @@
+<div align="center">
+  <img src="public/diff-ex.svg" width="76" alt="Diff EX 图标" />
+  <h1>Diff EX</h1>
+  <p>比较文件，理解差异，自由合并。</p>
+  <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
+</div>
+
+[![构建状态](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml/badge.svg)](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml)
+[![许可证](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
+**Diff EX 是 EX 系列的本地离线桌面对比与合并工具，目标平台为 Windows、macOS、Linux。** 界面采用 Vue 3 + Monaco，原生文件操作和对比引擎使用 Rust，通过 Tauri 2 连接。无需注册、服务端或上传文件，没有遥测。
+
+> **当前状态：v0.1.0 开发基线。** M0 工程基础与 M1–M3 首版核心功能已经落地；最初规划的完整专业工具功能仍按阶段推进。具体已完成和未完成范围见[阶段计划](docs/ROADMAP.md)及[交接记录](docs/HANDOFF_2026-11-27.md)。
+
+## 已实现
+
+| 模块 | 当前功能 |
+| --- | --- |
+| 文本与代码 | 左右均可编辑，双栏/单栏，语法高亮，行内字符差异，差异导航，按块双向合并，整侧复制，撤销、查找、折叠相同行 |
+| 比较规则 | 原生 Myers / Patience / Histogram，忽略大小写、首尾/全部空白、空行、换行风格 |
+| 文件打开与保存 | UTF-8、UTF-16LE/BE、GBK、GB18030，BOM 与换行设置，磁盘变更检查，原子写入，另存为覆盖确认 |
+| 目录比较 | 递归内容哈希/大小时间比较，`.gitignore`、自定义排除、隐藏文件，状态/路径筛选、排序、虚拟列表、双击打开文件对 |
+| 目录同步 | 双向更新、左右单向更新、左右镜像，完整操作预览、取消、执行前复查、覆盖/删除备份、部分执行结果 |
+| 结构化比较 | JSON / YAML / XML，字段顺序处理、类型变化、节点路径、搜索筛选、完整值详情、解析错误、只读规范化 JSON |
+| 工作区 | 多标签，切换标签保留撤销历史，命名会话快照，自动恢复未保存编辑和规则，异常工作区恢复/备份 |
+| 外观与语言 | 深色、纯黑、灰色、柔和白色，英文、简体中文和跟随系统，字号与自动换行设置 |
+
+比较规则只影响结果判断，编辑器显示原文差异，合并复制原始内容。规范化 JSON 只是只读的比较表示，不会把 YAML/XML 的规范化结果当成原文件格式保存。
+
+双向同步对单侧文件进行补齐；两侧同名文件内容不同会保留为冲突，不猜测覆盖方向。首版没有历史同步基线，不能自动判定哪一侧是用户希望保留的新版本。符号链接、特殊文件以及文件/目录类型冲突不会自动跟随或替换。
+
+## 开发与构建
+
+需要 Node.js 24、当前稳定版 Rust，以及对应平台的 [Tauri 编译依赖](https://v2.tauri.app/start/prerequisites/)。
+
+```bash
+npm ci
+npm run desktop:dev
+```
+
+生成本机安装包：
+
+```bash
+npm run desktop:build
+```
+
+[GitHub Actions](https://github.com/xzcode/diff-ex/actions/workflows/ci.yml) 配置了 Windows x64、macOS 通用架构、Linux x64 安装包构建。只有实际成功的任务才有对应产物。版本标签触发的构建在验证及各平台打包全部成功后发布到 [Releases](https://github.com/xzcode/diff-ex/releases)。
+
+macOS 配置 Ad-hoc 签名，尚未配置 Apple Developer ID 与公证；Windows 首版未配置代码签名。
+
+浏览器预览：
+
+```bash
+npm run dev
+```
+
+访问 `http://localhost:1420`。浏览器支持文本打开/编辑、Myers、JSON 结构化比较与 UTF-8 下载；目录访问和同步、Patience/Histogram、YAML/XML 语义引擎以及其他编码保存由桌面版提供。界面明确提示这些边界，不伪造原生操作结果。
+
+## 使用方式
+
+1. 首页新建文本、目录或结构化对比。
+2. 打开/拖入文件，或直接粘贴内容。普通打开自动识别 BOM/UTF-8；GBK 等可在文件菜单中指定编码打开。
+3. 跳转差异、按块向左/右合并；原始文件仅在点击保存时写入。
+4. 保存前检查文件指纹。外部修改导致指纹变化时拒绝覆盖，保留编辑内容供处理。
+5. 目录同步先选择方向、查看操作预览，再执行；覆盖和删除会保留备份，取消/失败会说明已完成项目。
+6. 命名会话保存文件内容、草稿和比较规则。普通工作区也会自动恢复，数量不设人为上限。
+
+快捷键：`Ctrl/Cmd+N` 新建，`Ctrl/Cmd+O` 打开，`Ctrl/Cmd+S` 保存当前编辑侧，`Ctrl/Cmd+Shift+S` 另存为，`F7 / Shift+F7` 跳转差异，`Ctrl/Cmd+F` 查找，`Ctrl/Cmd+Z` 撤销，`Ctrl/Cmd+,` 设置。
+
+## 验证与文档
+
+```bash
+npm run check
+npm test
+npm run build
+cargo fmt --all -- --check
+cargo test --locked -p diff-ex-core
+cargo check --locked -p diff-ex
+```
+
+真实浏览器验证使用 `npx playwright install --with-deps chromium` 和 `npm run test:ui`，输出截图及结果。需要允许启动 Chromium 的运行环境。
+
+- [产品需求](docs/PRD.md)
+- [技术架构](docs/ARCHITECTURE.md)
+- [格式支持与文件安全边界](docs/SAFETY_AND_FORMATS.md)
+- [阶段计划](docs/ROADMAP.md)
+- [当前交接记录](docs/HANDOFF_2026-11-27.md)
+
+当前文本编辑和精确文本比较会将内容加载到内存，目录哈希采用流式读取。不设置任意文件数量/大小限制，但分页编辑和可随时中断的大文件文本引擎仍待实现。同步按单个文件原子替换，不提供整个目录事务回滚。
+
+二进制、图片、表格、三方合并、压缩包、Git、远程文件、Office 文档、数据库与 CLI 仍在后续计划。
+
+## 许可证
+
+[Apache License 2.0](LICENSE)。第三方组件保留各自许可证，见 [THIRD_PARTY.md](THIRD_PARTY.md)。
