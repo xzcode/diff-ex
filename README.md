@@ -10,7 +10,7 @@
 
 **Diff EX is an offline desktop comparison and merge tool for Windows, macOS and Linux.** It combines an editable two-pane workspace with an independent Rust comparison engine. No account, server, telemetry or file upload is needed.
 
-> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M3 feature set are implemented. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
+> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M5 feature set are implemented, including read-only binary, image and table comparison. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
 
 ## What works
 
@@ -32,6 +32,16 @@ Two-way synchronization copies files that exist on only one side. Files modified
 ## Themes and languages
 
 Choose **Settings → Appearance** for Pure black, Graphite (gray), White, Soft light (warm white), or Midnight. All surfaces and the editor follow the selected palette, with distinct tabs, sidebars, controls and diff highlights. Language selection applies immediately and persists across launches. Supported app interface languages: English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese, Russian, Malay and Indonesian. The app uses bundled offline translations; native OS dialogs and third-party editor/engine diagnostics may retain their own language. See [appearance and localization](docs/APPEARANCE_I18N.md).
+
+## Binary, image and table comparison
+
+| Workspace | Capabilities |
+|---|---|
+| Binary | Positional byte comparison, paged hexadecimal and ASCII views, whole-file streaming scan, first/last difference navigation, cancellation |
+| Images | Decoded raster pixels, side-by-side, weighted overlay, split view, heatmap, per-channel tolerance, unmatched size accounting |
+| Tables | CSV/TSV with encoding and delimiter options; native XLS/XLSX/XLSM/XLSB/ODS worksheet reader; column-name and primary-key alignment, cell details and paging |
+
+These three workspaces are read-only. Binary comparison does not infer edit alignment; image comparison uses decoded first-frame pixels rather than metadata or animations; spreadsheet comparison uses loaded cell values, not formatting, macros or recalculated formulas. Excel/OpenDocument reading requires the desktop app. Browser sessions restore file references, not file handles. No source data is copied into workspace snapshots for these modules.
 
 ## Screenshots
 

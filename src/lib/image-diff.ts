@@ -41,7 +41,7 @@ export function compareRaster(left:Raster,right:Raster,tolerance:number):ImageSt
     if(!a){rightOnly++;heat[p]=37;heat[p+1]=185;heat[p+2]=125;heat[p+3]=255;continue}
     common++
     const l=(y*left.width+x)*4,r=(y*right.width+x)*4
-    const delta=Math.max(...[0,1,2,3].map(i=>Math.abs(left.data[l+i]-right.data[r+i])))
+    const delta=Math.max(Math.abs(left.data[l]-right.data[r]),Math.abs(left.data[l+1]-right.data[r+1]),Math.abs(left.data[l+2]-right.data[r+2]),Math.abs(left.data[l+3]-right.data[r+3]))
     maxDelta=Math.max(maxDelta,delta)
     if(delta>threshold){changed++;heat[p]=255;heat[p+1]=Math.max(20,180-delta);heat[p+2]=25;heat[p+3]=255}
     else{const gray=Math.round((left.data[l]+left.data[l+1]+left.data[l+2])/3);heat[p]=gray;heat[p+1]=gray;heat[p+2]=gray;heat[p+3]=Math.min(left.data[l+3],100)}

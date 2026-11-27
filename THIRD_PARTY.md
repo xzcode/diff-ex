@@ -19,3 +19,7 @@ Diff EX's original application code is Apache-2.0. Dependencies retain their own
 | diff / jsonc-parser | Explicitly limited browser preview | https://github.com/kpdecker/jsdiff / https://github.com/microsoft/node-jsonc-parser |
 
 Vite, TypeScript, vue-tsc, Vitest and Playwright are development/build/verification dependencies. This component list is informational; it does not replace the license texts shipped by packages or a complete distribution audit.
+
+## Spreadsheet reader
+
+- Calamine 0.38.0 (`calamine`, MIT): native read-only Excel and OpenDocument workbook parsing. Dependency versions and transitive packages are recorded in Cargo.lock. Spreadsheet macros are not executed.

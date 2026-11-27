@@ -317,6 +317,75 @@ try {
   }
   checks.push('All 12 interface languages switch and persist, and all five themes apply to the Monaco editor without losing documents.')
 
+
+  // Open real files in each new comparison workspace, not direct state injection.
+  const assetInput = side => activeView().locator('[data-asset-side="'+side+'"]')
+  const file = (name, mimeType, data) => ({ name, mimeType, buffer: Buffer.from(data) })
+  const selectAsset = async (side, fixture) => assetInput(side).setInputFiles(fixture)
+
+  await page.locator('.sidebar').getByRole('button',{name:'Binary compare',exact:true}).click()
+  await activeView().locator('.binary-workspace').waitFor()
+  const binaryLeft=Buffer.alloc(1200,65),binaryRight=Buffer.alloc(1201,65)
+  binaryRight[2]=90;binaryRight[700]=91
+  await selectAsset('left',file('left.bin','application/octet-stream',binaryLeft))
+  await selectAsset('right',file('right.bin','application/octet-stream',binaryRight))
+  await activeView().locator('.hex-row .changed').first().waitFor()
+  await activeView().getByRole('button',{name:'Scan whole file',exact:true}).click()
+  await activeView().locator('.binary-summary').filter({hasText:'Total byte differences: 3'}).waitFor()
+  await activeView().getByRole('button',{name:/Last difference/}).click()
+  await waitState(w=>w?.sessions.find(s=>s.id===w.activeId)?.assetSettings?.binaryOffset===1024,'binary jump to final page')
+  await activeView().locator('.hex-address').filter({hasText:'00000400'}).waitFor()
+  await screenshot('06-binary-comparison')
+  checks.push('Binary file picker, streaming byte scan, exact tail difference counts and offset navigation.')
+
+  await page.locator('.sidebar').getByRole('button',{name:'Image compare',exact:true}).click()
+  await activeView().locator('.image-workspace').waitFor()
+  async function pngFixture(name,changed){
+    const data=await page.evaluate(changed=>{
+      const canvas=document.createElement('canvas');canvas.width=16;canvas.height=16
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#102030';ctx.fillRect(0,0,16,16)
+      if(changed){ctx.fillStyle='#ff2030';ctx.fillRect(0,0,4,4)}
+      return canvas.toDataURL('image/png').split(',')[1]
+    },changed)
+    return file(name,'image/png',Buffer.from(data,'base64'))
+  }
+  await selectAsset('left',await pngFixture('left.png',false))
+  await selectAsset('right',await pngFixture('right.png',true))
+  await activeView().locator('.asset-status').filter({hasText:'Pixel differences: 16'}).waitFor()
+  for(const mode of ['Overlay','Split view','Heatmap']){
+    await activeView().getByRole('button',{name:mode,exact:true}).click()
+    await activeView().locator('.image-single canvas').waitFor()
+  }
+  await screenshot('07-image-heatmap')
+  await activeView().getByLabel('Tolerance',{exact:true}).fill('255')
+  await activeView().getByLabel('Tolerance',{exact:true}).dispatchEvent('change')
+  await activeView().locator('.asset-status').filter({hasText:'Equal under current rules'}).waitFor()
+  checks.push('Real PNG decoding, exact pixel differences, overlay/split/heatmap and channel tolerance.')
+
+  await page.locator('.sidebar').getByRole('button',{name:'Table compare',exact:true}).click()
+  await activeView().locator('.table-workspace').waitFor()
+  await selectAsset('left',file('left.csv','text/csv','id,name,n\n1,a,7\n2,b,8\n3,c,9'))
+  await selectAsset('right',file('right.csv','text/csv','name,id,n\nb,2,10\na,1,7\nd,4,11'))
+  await activeView().locator('.table-summary').waitFor()
+  await activeView().getByLabel('Align columns',{exact:true}).selectOption('header')
+  await activeView().getByLabel('Match rows',{exact:true}).selectOption('key')
+  await activeView().getByLabel('Key column',{exact:true}).selectOption('header:id')
+  await activeView().locator('.table-summary').filter({hasText:'Cell differences: 7'}).waitFor()
+  assert.equal(await activeView().locator('.sheet-grid tbody tr').count(),3)
+  await activeView().locator('.sheet-grid .cell-changed').first().click()
+  await activeView().locator('.cell-detail').waitFor()
+  await screenshot('08-table-comparison')
+  await selectAsset('right',file('duplicate.csv','text/csv','name,id,n\nb,2,10\na,2,7'))
+  await activeView().getByRole('alert').filter({hasText:'Duplicate key'}).waitFor()
+  checks.push('CSV file picker, header and primary-key matching, cell detail inspection and duplicate key refusal.')
+
+  // Browser file handles are intentionally not persisted. Restoring a session
+  // shows the saved reference, but requires reselecting the local file.
+  await waitState(w=>w?.sessions.find(s=>s.id===w.activeId)?.assetSources?.right?.name==='duplicate.csv','asset file descriptors persisted')
+  await page.reload({waitUntil:'networkidle'})
+  await activeView().locator('.asset-source-name').filter({hasText:'Open this file again to restore the comparison.'}).first().waitFor()
+  checks.push('Browser asset session restoration requires explicit file reselection rather than fake file contents.')
+
   assert.deepEqual(errors, [], 'No uncaught browser errors are permitted.')
   await writeFile(resolve(artifacts, 'report.json'), JSON.stringify({ ok: true, checks, errors }, null, 2))
   console.log(checks.map(check => `PASS ${check}`).join('\n'))
