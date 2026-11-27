@@ -78,3 +78,14 @@ select,.app-shell input:not([type=checkbox]):not([type=number]):not(.monaco-edit
 
 /* Keep translated commands usable in compact windows. */
 .text-tools .tool-group,.structure-toolbar .view-switch,.filter-tabs{flex-wrap:wrap}.folder-path>div{min-width:0}.folder-path input{min-width:0}.sidebar .saved-empty,.sidebar-footer div{overflow-wrap:anywhere}.app-header .local-badge{white-space:nowrap}.file-header .file-identity strong,.file-header .file-name strong{min-width:0}.settings-modal .setting-row{gap:16px}.settings-modal .setting-row select{flex-shrink:0}.folder-toolbar .tool-group{flex-wrap:wrap}.comparison-card .card-footer span{min-width:0}.settings-modal .theme-choices button:focus-visible{outline-offset:3px}
+
+/* Asset comparison workspaces share the existing theme system. */
+.asset-module{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;background:var(--panel)}
+.asset-tools{flex-wrap:wrap;gap:10px;padding:8px 12px!important;min-height:48px!important;background:var(--panel-alt)}
+.asset-tools label{display:inline-flex;align-items:center;gap:7px;font-size:11px;white-space:nowrap;color:var(--muted)}
+.asset-tools select,.asset-tools input:not([type=checkbox]):not([type=range]){min-height:34px;font-size:12px;padding:6px 9px}
+.asset-empty{display:flex;flex:1;min-height:80px;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.asset-status{flex-shrink:0;padding:6px 13px;min-height:32px;display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--border);color:var(--muted);font-size:11px;background:var(--panel-alt)}
+.positive{color:var(--green)}.binary-card .card-icon{color:var(--accent)}.image-card .card-icon{color:var(--amber)}.table-card .card-icon{color:var(--green)}
+.comparison-cards{align-items:stretch}
+@media(max-height:780px){.sidebar{padding-top:7px}.sidebar .nav-item{min-height:34px;padding:6px 8px}.sidebar-label{margin-top:12px}.sidebar-section-heading{margin-top:7px}}
