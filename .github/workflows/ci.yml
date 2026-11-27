@@ -2,7 +2,7 @@ name: Verify and build desktop
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'codex/**']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -48,6 +48,7 @@ jobs:
           path: dist/
 
   desktop:
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     name: Desktop · ${{ matrix.name }}
     strategy:
       fail-fast: false

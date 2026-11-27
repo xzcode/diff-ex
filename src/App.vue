@@ -27,6 +27,7 @@ const workspaceError = ref('')
 const notification = ref<{ text: string; error: boolean } | null>(null)
 const nameDialog = ref(false)
 const sessionName = ref('')
+const namingSessionId = ref('')
 const nameInput = ref<HTMLInputElement>()
 const dragging = ref(false)
 const active = computed(() => sessions.value.find(s => s.id === activeId.value))
@@ -138,17 +139,19 @@ async function saveSide(side: Side, saveAs = false, session?: CompareSession) {
 }
 function saveNamedSession() {
   if (!active.value) return
+  namingSessionId.value = active.value.id
   sessionName.value = titleFor(active.value)
   nameDialog.value = true
   void nextTick(() => { nameInput.value?.focus(); nameInput.value?.select() })
 }
 function commitNamedSession() {
-  if (!active.value || !sessionName.value.trim()) return
-  const existing = savedSessions.value.find(s => s.session.id === active.value!.id)
-  const entry: SavedSession = { id: existing?.id || crypto.randomUUID(), name: sessionName.value.trim(), savedAt: new Date().toISOString(), session: clone(active.value) }
+  const target = sessions.value.find(s => s.id === namingSessionId.value)
+  if (!target || !sessionName.value.trim()) return
+  const existing = savedSessions.value.find(s => s.session.id === target.id)
+  const entry: SavedSession = { id: existing?.id || crypto.randomUUID(), name: sessionName.value.trim(), savedAt: new Date().toISOString(), session: clone(target) }
   if (existing) Object.assign(existing, entry)
   else savedSessions.value.unshift(entry)
-  active.value.title = entry.name
+  target.title = entry.name
   nameDialog.value = false
   notify(tr('Session saved with files, edits and comparison rules.', '会话已保存，包含文件、编辑内容和比较规则。'))
 }
@@ -181,7 +184,7 @@ async function openFolderFile(entry: DirectoryEntry, leftRoot: string, rightRoot
 }
 async function droppedFiles(files: File[]) {
   dragging.value = false
-  if (!files.length || isDesktop) return
+  if (!files.length || isDesktop || !loaded.value || restoringFailed.value || closing.value || document.querySelector('[aria-modal="true"]')) return
   try {
     for (let i = 0; i < files.length; i += 2) {
       const s = newSession('text')
@@ -192,6 +195,13 @@ async function droppedFiles(files: File[]) {
   } catch (e) { notify(String(e), true) }
 }
 function keyboard(event: KeyboardEvent) {
+  const modal = document.querySelector<HTMLElement>('[aria-modal="true"]')
+  if (modal && event.key === 'Tab') {
+    const focusable = Array.from(modal.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')).filter(el => el.getClientRects().length > 0)
+    const first = focusable[0], last = focusable[focusable.length - 1]
+    if (first && (!modal.contains(document.activeElement) || (event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last))) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
+    return
+  }
   if (event.key === 'Escape') { settingsOpen.value = false; helpOpen.value = false; nameDialog.value = false; return }
   if (event.defaultPrevented || !loaded.value || restoringFailed.value || closing.value || activeSyncJobs.value || document.querySelector('[aria-modal="true"]') || !(event.metaKey || event.ctrlKey)) return
   if (event.key.toLowerCase() === 'n') { event.preventDefault(); addSession('text') }
@@ -254,6 +264,7 @@ onMounted(async () => {
       } finally { closing.value = false }
     }))
     unlisten.push(await getCurrentWebview().onDragDropEvent(async event => {
+      if (!loaded.value || restoringFailed.value || closing.value || activeSyncJobs.value || busy.value || document.querySelector('[aria-modal="true"]')) { dragging.value = false; return }
       if (event.payload.type === 'over' || event.payload.type === 'enter') dragging.value = true
       if (event.payload.type === 'leave') dragging.value = false
       if (event.payload.type !== 'drop') return

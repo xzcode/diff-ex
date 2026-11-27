@@ -197,6 +197,8 @@ try {
   // Real editor input -> semantic equality, accurate errors, then recovery.
   await page.locator('.sidebar').getByRole('button', { name: 'Structured compare', exact: true }).click()
   await activeView().locator('.structure-editors .monaco-editor').first().waitFor()
+  await activeView().getByText('Open or paste two documents to compare.', { exact: true }).waitFor()
+  assert.equal(await activeView().locator('.parse-error').count(), 0, 'A new empty comparison should show the start state.')
   const leftJson = '{\n  "name": "Diff EX",\n  "version": 1,\n  "enabled": true,\n  "features": ["text", "folders"]\n}'
   const reorderedJson = '{"features":["text","folders"],"enabled":true,"version":1,"name":"Diff EX"}'
   await typeSource('left', leftJson)
