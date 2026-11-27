@@ -169,15 +169,15 @@ async function removeSaved(saved: SavedSession) {
   if (await confirmAction(tr('Remove the saved session “{0}”? Original files are unaffected.', saved.name), tr('Remove session'))) savedSessions.value = savedSessions.value.filter(s => s.id !== saved.id)
 }
 function joinPath(root: string, relative: string): string { return root.replace(/[/\\]+$/, '') + '/' + relative }
-async function openFolderFile(entry: DirectoryEntry, leftRoot: string, rightRoot: string) {
+async function openFolderFile(entry: DirectoryEntry, leftRoot: string, rightRoot: string, rightRelative?: string) {
   if (busy.value) return
   busy.value = true
   try {
     const s = newSession('text')
-    s.title = entry.relativePath
+    s.title = rightRelative && rightRelative !== entry.relativePath ? entry.relativePath + ' ↔ ' + rightRelative : entry.relativePath
     const [left, right] = await Promise.all([
       entry.left?.kind === 'file' ? readText(joinPath(leftRoot, entry.relativePath)) : Promise.resolve(null),
-      entry.right?.kind === 'file' ? readText(joinPath(rightRoot, entry.relativePath)) : Promise.resolve(null),
+      entry.right?.kind === 'file' ? readText(joinPath(rightRoot, rightRelative || entry.relativePath)) : Promise.resolve(null),
     ])
     if (left) { s.left = left; s.savedLeft = left.content; s.savedLeftMetadata = metadataSignature(left) } else s.left.name = '(missing on left)'
     if (right) { s.right = right; s.savedRight = right.content; s.savedRightMetadata = metadataSignature(right) } else s.right.name = '(missing on right)'

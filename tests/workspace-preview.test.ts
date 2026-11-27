@@ -47,6 +47,14 @@ describe('browser preview does not claim unsupported or lossy semantics', () => 
     expect(previewStructured('{"Name":"HELLO"}', '{"Name":"hello"}', { ...json, ignoreCase: true }).equal).toBe(true)
     expect(previewStructured('{"Name":1}', '{"name":1}', { ...json, ignoreCase: true }).equal).toBe(false)
   })
+  it('filters explicit line prefixes without changing original hunk coordinates', () => {
+    const o = { ...newSession().textOptions, ignoreLinePrefixes: ['#', '  '] }
+    const r = previewText('head\n  # old\nold\ntail', 'head\n# new\nnew\ntail', o)
+    expect(r.hunks).toEqual([{ leftStart: 2, leftEnd: 3, rightStart: 2, rightEnd: 3 }])
+    expect(previewText('# old\nkeep', '# new\nkeep', o).equal).toBe(true)
+    expect(previewText('x # old', 'x # new', o).equal).toBe(false)
+    expect(() => previewText('a','a',{...o, ignoreLineRegex: '^DEBUG'})).toThrow('desktop')
+  })
   it('compares raw line endings separately and refuses native-only modes', () => {
     const o = newSession().textOptions
     expect(previewText('a\r\n', 'a\n', o).equal).toBe(true)

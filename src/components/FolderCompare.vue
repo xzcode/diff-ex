@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { findRenameCandidates } from '../lib/renames'
 import { translate } from '../lib/i18n'
 import type { Language } from '../contracts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -9,7 +10,7 @@ const props = defineProps<{ session: CompareSession; language: Language }>()
 const emit = defineEmits<{
   'update-roots': [left: string, right: string]
   'update-options': [options: DirectoryOptions]
-  'open-file': [entry: DirectoryEntry, leftRoot: string, rightRoot: string]
+  'open-file': [entry: DirectoryEntry, leftRoot: string, rightRoot: string, rightRelative?: string]
 }>()
 const tr = (key: string, ...args: (string | number)[]) => translate(props.language, key, ...args)
 const results = ref<DirectoryResult | null>(null)
@@ -17,7 +18,7 @@ const busy = ref('')
 const error = ref('')
 const job = ref('')
 const query = ref('')
-const filter = ref<EntryStatus | 'all' | 'changed'>('all')
+const filter = ref<EntryStatus | 'all' | 'changed' | 'moves'>('all')
 const settings = ref(false)
 const plan = ref<SyncPlan | null>(null)
 const outcome = ref<SyncResult | null>(null)
@@ -31,9 +32,11 @@ const selected = ref('')
 let observer: ResizeObserver | undefined
 let alive = true
 let epoch = 0
+const movePairs = computed(() => props.session.directoryOptions.method === 'content' ? findRenameCandidates(results.value?.entries || []) : [])
+const moveByPath = computed(() => new Map(movePairs.value.flatMap(pair => [[pair.left.relativePath, pair], [pair.right.relativePath, pair]] as const)))
 const rows = computed(() => {
   const q = query.value.toLowerCase()
-  return (results.value?.entries || []).filter(e => (filter.value === 'all' || (filter.value === 'changed' ? e.status !== 'same' : e.status === filter.value)) && (!q || e.relativePath.toLowerCase().includes(q)))
+  return (results.value?.entries || []).filter(e => (filter.value === 'all' || (filter.value === 'changed' ? e.status !== 'same' : filter.value === 'moves' ? moveByPath.value.has(e.relativePath) : e.status === filter.value)) && (!q || e.relativePath.toLowerCase().includes(q) || !!moveByPath.value.get(e.relativePath)?.left.relativePath.toLowerCase().includes(q) || !!moveByPath.value.get(e.relativePath)?.right.relativePath.toLowerCase().includes(q)))
     .slice().sort((a, b) => direction.value * (sort.value === 'path' ? a.relativePath.localeCompare(b.relativePath) : sort.value === 'status' ? a.status.localeCompare(b.status) || a.relativePath.localeCompare(b.relativePath) : (a[sort.value]?.size ?? -1) - (b[sort.value]?.size ?? -1)))
 })
 const first = computed(() => Math.max(0, Math.floor(scrollTop.value / 37) - 8))
@@ -55,7 +58,7 @@ async function clearPlan() {
   if (old && isDesktop) await discardSync(old.id).catch(() => undefined)
 }
 watch(() => [props.session.leftRoot, props.session.rightRoot, JSON.stringify(props.session.directoryOptions)], () => {
-  epoch++; results.value = null; outcome.value = null; error.value = ''; void clearPlan()
+  epoch++; results.value = null; outcome.value = null; error.value = ''; if (filter.value === 'moves') filter.value = 'all'; void clearPlan()
 })
 watch(mode, () => { void clearPlan() })
 watch([query, filter, sort, direction], () => { scrollTop.value = 0; if (viewport.value) viewport.value.scrollTop = 0 })
@@ -69,7 +72,7 @@ async function compare() {
   await clearPlan()
   try {
     const value = await compareFolders(props.session.leftRoot, props.session.rightRoot, props.session.directoryOptions, job.value)
-    if (alive && revision === epoch) { results.value = value; scrollTop.value = 0; if (viewport.value) viewport.value.scrollTop = 0 }
+    if (alive && revision === epoch) { results.value = value; if (filter.value === 'moves' && !movePairs.value.length) filter.value = 'all'; scrollTop.value = 0; if (viewport.value) viewport.value.scrollTop = 0 }
   } catch (e) { if (alive && revision === epoch) error.value = String(e) }
   finally { if (alive) { busy.value = ''; job.value = '' } }
 }
@@ -96,6 +99,11 @@ async function run() {
 function setOption(key: keyof DirectoryOptions, value: unknown) { emit('update-options', { ...props.session.directoryOptions, [key]: value }) }
 function changeSort(v: typeof sort.value) { if (sort.value === v) direction.value *= -1; else { sort.value = v; direction.value = 1 } }
 function openEntry(e: DirectoryEntry) {
+  const pair = moveByPath.value.get(e.relativePath)
+  if (pair) {
+    emit('open-file', { ...pair.left, right: pair.right.right, status: 'same' }, props.session.leftRoot, props.session.rightRoot, pair.right.relativePath)
+    return
+  }
   if (e.left?.kind === 'file' || e.right?.kind === 'file') emit('open-file', e, props.session.leftRoot, props.session.rightRoot)
 }
 onMounted(async () => { await nextTick(); if (viewport.value) { observer = new ResizeObserver(entries => { viewportHeight.value = entries[0].contentRect.height }); observer.observe(viewport.value) } })
@@ -119,14 +127,15 @@ onBeforeUnmount(() => { alive = false; observer?.disconnect(); if (job.value) vo
     <div v-if="settings" class="folder-options"><label><input type="checkbox" :checked="session.directoryOptions.respectGitignore" :disabled="!!busy" @change="setOption('respectGitignore', ($event.target as HTMLInputElement).checked)"> {{ tr('Respect .gitignore') }}</label><label><input type="checkbox" :checked="session.directoryOptions.showHidden" :disabled="!!busy" @change="setOption('showHidden', ($event.target as HTMLInputElement).checked)"> {{ tr('Include hidden files') }}</label><label class="exclude-field">{{ tr('Exclude patterns · one per line') }}<textarea :value="session.directoryOptions.excludes.join('\n')" :disabled="!!busy" placeholder="node_modules/&#10;*.log" rows="2" @change="setOption('excludes', ($event.target as HTMLTextAreaElement).value.split('\n').map(v => v.trim()).filter(Boolean))" /></label><span class="muted small">{{ tr('Symbolic links are never traversed. Content comparison streams file hashes; metadata comparison is only a quick estimate.') }}</span></div>
     <div v-if="error" class="error-banner" role="alert"><AlertTriangle :size="16" /><span>{{ error }}</span><button class="btn-icon" @click="error = ''"><X :size="15" /></button></div>
     <div v-if="outcome" class="sync-outcome"><ShieldCheck :size="20" /><div><strong>{{ tr('Synchronization finished') }}</strong><p>{{ tr('Completed') }} {{ outcome.completed }} · {{ tr('Skipped') }} {{ outcome.skipped }} · {{ tr('Errors') }} {{ outcome.errors.length }}</p><p v-if="outcome.backupRoot" class="selectable">{{ tr('Backups:') }} {{ outcome.backupRoot }}</p><pre v-if="outcome.errors.length">{{ outcome.errors.join('\n') }}</pre></div><button class="btn" @click="compare">{{ tr('Compare again') }}</button></div>
-    <div class="folder-filters"><div class="filter-tabs"><button :class="{ active: filter === 'all' }" @click="filter = 'all'">{{ tr('All files') }} <span>{{ results?.entries.length ?? '—' }}</span></button><button :class="{ active: filter === 'changed' }" @click="filter = 'changed'">{{ tr('Differences') }} <span>{{ results ? results.entries.length - counts.same : '—' }}</span></button><select v-model="filter" :aria-label="tr('Filter status')"><option value="all">{{ tr('All statuses') }}</option><option value="changed">{{ tr('All differences') }}</option><option v-for="s in (['same', 'different', 'leftOnly', 'rightOnly', 'conflict', 'error'] as const)" :key="s" :value="s">{{ statusText(s) }} ({{ counts[s] }})</option></select></div><label class="table-search"><Search :size="15" /><input v-model="query" :placeholder="tr('Filter by file path…')"></label></div>
+    <div class="folder-filters"><div class="filter-tabs"><button :class="{ active: filter === 'all' }" @click="filter = 'all'">{{ tr('All files') }} <span>{{ results?.entries.length ?? '—' }}</span></button><button :class="{ active: filter === 'changed' }" @click="filter = 'changed'">{{ tr('Differences') }} <span>{{ results ? results.entries.length - counts.same : '—' }}</span></button><button v-if="movePairs.length" :class="{ active: filter === 'moves' }" @click="filter = 'moves'">{{ tr('Possible moves') }} <span>{{ movePairs.length }}</span></button><select v-model="filter" :aria-label="tr('Filter status')"><option v-if="movePairs.length" value="moves">{{ tr('Possible moves') }}</option><option value="all">{{ tr('All statuses') }}</option><option value="changed">{{ tr('All differences') }}</option><option v-for="s in (['same', 'different', 'leftOnly', 'rightOnly', 'conflict', 'error'] as const)" :key="s" :value="s">{{ statusText(s) }} ({{ counts[s] }})</option></select></div><label class="table-search"><Search :size="15" /><input v-model="query" :placeholder="tr('Filter by file path…')"></label></div>
+    <div v-if="filter === 'moves'" class="notice">{{ tr('Unique equal-content paths are possible moves; synchronization is unchanged.') }}</div>
     <div class="directory-table" ref="viewport" @scroll="scrollTop = ($event.target as HTMLElement).scrollTop">
       <div class="directory-table-head directory-row"><button @click="changeSort('path')">{{ tr('NAME / RELATIVE PATH') }}<ChevronDown :size="13" /></button><button @click="changeSort('status')">{{ tr('STATUS') }}<ChevronDown :size="13" /></button><button @click="changeSort('left')">{{ tr('LEFT SIZE') }}</button><button @click="changeSort('right')">{{ tr('RIGHT SIZE') }}</button></div>
       <div v-if="!results" class="folder-empty"><div class="empty-folders"><Folder :size="42" :stroke-width="1.3"/><ArrowLeftRight :size="23"/><Folder :size="42" :stroke-width="1.3"/></div><h3>{{ tr('Two folders. A clear picture.') }}</h3><p>{{ tr('Choose your left and right folders to see what changed.') }}</p><span class="muted small">{{ tr('Recursive comparison · Content hashes · Safe synchronization') }}</span></div>
       <template v-else>
         <div :style="{ height: first * 37 + 'px' }" />
-        <div v-for="entry in visibleRows" :key="entry.relativePath" class="directory-row directory-file" :class="[{ selected: selected === entry.relativePath }, 'status-' + entry.status]" tabindex="0" :title="entry.error || entry.relativePath" @click="selected = entry.relativePath" @dblclick="openEntry(entry)" @keydown.enter="openEntry(entry)">
-          <div class="file-name"><Folder v-if="(entry.left || entry.right)?.kind === 'directory'" :size="17" class="folder-icon" /><FileCode2 v-else :size="16" /><span>{{ entry.relativePath }}</span></div><span class="status-label"><i />{{ statusText(entry.status) }}</span><span class="file-size">{{ entry.left?.kind === 'directory' ? '—' : bytes(entry.left?.size) }}</span><span class="file-size">{{ entry.right?.kind === 'directory' ? '—' : bytes(entry.right?.size) }}</span>
+        <div v-for="entry in visibleRows" :key="entry.relativePath" class="directory-row directory-file" :class="[{ selected: selected === entry.relativePath }, 'status-' + entry.status]" tabindex="0" :title="entry.error || (moveByPath.get(entry.relativePath) ? moveByPath.get(entry.relativePath)!.left.relativePath + ' ↔ ' + moveByPath.get(entry.relativePath)!.right.relativePath : entry.relativePath)" @click="selected = entry.relativePath" @dblclick="openEntry(entry)" @keydown.enter="openEntry(entry)">
+          <div class="file-name"><Folder v-if="(entry.left || entry.right)?.kind === 'directory'" :size="17" class="folder-icon" /><FileCode2 v-else :size="16" /><span>{{ entry.relativePath }}</span></div><span class="status-label"><i />{{ moveByPath.has(entry.relativePath) ? tr('Possible move') : statusText(entry.status) }}</span><span class="file-size">{{ entry.left?.kind === 'directory' ? '—' : bytes(entry.left?.size) }}</span><span class="file-size">{{ entry.right?.kind === 'directory' ? '—' : bytes(entry.right?.size) }}</span>
         </div>
         <div :style="{ height: (rows.length - last) * 37 + 'px' }" />
         <div v-if="!rows.length" class="empty-result">{{ tr('No files match this filter.') }}</div>
@@ -139,4 +148,5 @@ onBeforeUnmount(() => { alive = false; observer?.disconnect(); if (job.value) vo
 
 <style scoped>
 .folder-workspace{display:flex;flex-direction:column;height:100%;min-height:0}.folder-toolbar{justify-content:space-between}.folder-paths{display:grid;grid-template-columns:1fr 36px 1fr;gap:10px;padding:20px 22px;border-bottom:1px solid var(--border);background:var(--panel)}.folder-path>span{display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:1.2px;color:var(--muted);margin-bottom:10px;font-weight:600}.folder-path>div{display:flex;align-items:center;gap:10px;background:var(--bg);padding:0 8px 0 12px;border:1px solid var(--border);border-radius:7px}.folder-path input{border:0;background:none;width:100%;padding:10px 0}.swap-folders{align-self:end;margin-bottom:3px}.folder-options{padding:14px 22px;display:flex;flex-wrap:wrap;gap:20px;align-items:center;border-bottom:1px solid var(--border)}.folder-options label{font-size:12px;display:flex;align-items:center;gap:7px}.exclude-field{flex:1;min-width:230px}.exclude-field textarea{flex:1}.folder-filters{display:flex;justify-content:space-between;gap:20px;padding:12px 22px;border-bottom:1px solid var(--border);background:var(--panel)}.filter-tabs{display:flex;gap:8px;align-items:center}.filter-tabs>button{padding:6px 10px;border-radius:6px;color:var(--muted);font-size:12px}.filter-tabs>button.active{color:var(--text);background:var(--panel-alt)}.filter-tabs button span{font-family:var(--mono);margin-left:6px;color:var(--muted)}.filter-tabs select{font-size:11px;padding:5px;min-height:29px}.table-search{display:flex;gap:8px;align-items:center;color:var(--muted);width:220px}.table-search input{background:none;border:0;padding:4px;width:100%;font-size:12px}.directory-table{flex:1;min-height:0;overflow:auto;position:relative}.directory-row{display:grid;grid-template-columns:minmax(240px,1fr) 150px 112px 112px;align-items:center;padding:0 22px;gap:16px;min-width:690px}.directory-table-head{height:38px;background:var(--panel-alt);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border);color:var(--muted)}.directory-table-head button{display:flex;gap:6px;align-items:center;font-size:10px;font-weight:600;letter-spacing:.8px;padding:0}.directory-table-head button:nth-last-child(-n+2){justify-content:flex-end}.directory-file{height:37px;border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent);font-size:12px}.directory-file:hover,.directory-file.selected{background:var(--panel-alt)}.directory-file.selected{box-shadow:inset 2px 0 var(--accent)}.file-name{display:flex;gap:10px;align-items:center;overflow:hidden}.file-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.file-name svg{flex-shrink:0;color:var(--muted)}.file-name .folder-icon{color:var(--amber)}.file-size{font-family:var(--mono);font-size:11px;text-align:right;color:var(--muted)}.status-label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}.status-label i{width:5px;height:5px;border-radius:50%;background:currentColor}.status-different .status-label,.status-conflict .status-label{color:var(--amber)}.status-leftOnly .status-label{color:var(--red)}.status-rightOnly .status-label{color:var(--green)}.status-error .status-label{color:var(--red)}.folder-empty{display:flex;align-items:center;flex-direction:column;padding:92px 22px;text-align:center}.empty-folders{display:flex;align-items:center;gap:26px;color:var(--muted);margin-bottom:22px}.empty-folders svg:first-child{color:var(--accent)}.empty-folders svg:last-child{color:var(--green)}.folder-empty h3{font-size:19px;font-weight:500;margin:0 0 11px}.folder-empty p{color:var(--muted);font-size:13px;margin:0 0 22px}.folder-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 22px;border-top:1px solid var(--border);background:var(--panel)}.folder-footer select{max-width:225px;font-size:12px}.sync-modal{width:min(900px,95vw)}.sync-summary{display:flex;gap:25px;padding:15px 0}.sync-summary>span{display:flex;gap:7px;align-items:center;font-size:13px}.sync-roots{display:flex;gap:8px;flex-direction:column;font:11px var(--mono);color:var(--muted);padding:12px;border:1px solid var(--border);border-radius:7px;overflow-wrap:anywhere}.sync-operations{overflow:auto;max-height:40vh;margin:16px 0}.sync-operation{display:grid;grid-template-columns:160px 1fr 85px;gap:14px;font-size:12px;padding:10px;border-bottom:1px solid var(--border)}.sync-operation code{font:11px var(--mono);overflow-wrap:anywhere;user-select:text}.sync-operation>span:last-child{text-align:right}.sync-outcome{display:flex;align-items:flex-start;gap:12px;margin:12px 22px;padding:14px;border:1px solid var(--border);border-radius:7px;background:var(--panel-alt)}.sync-outcome>svg{color:var(--green);flex-shrink:0}.sync-outcome>div{flex:1;min-width:0}.sync-outcome p{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.sync-outcome pre{font-size:11px;white-space:pre-wrap;max-height:140px;overflow:auto;color:var(--red)}.empty-result{padding:50px;text-align:center;font-size:13px;color:var(--muted)}
+.status-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
