@@ -204,6 +204,20 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 })
   checks.push('Theme and Chinese locale persist across reload; compact viewport has no page overflow.')
 
+  // Ignore selected line prefixes in a real editable comparison.
+  await page.locator('.comparison-tab .tab-select').first().click()
+  await activeView().locator('.text-workspace').waitFor()
+  await page.getByRole('button', { name: 'Rules', exact: true }).click()
+  const prefix = activeView().getByLabel('Ignore line prefixes', { exact: true })
+  await prefix.fill('//')
+  await prefix.blur()
+  await waitState(w => w?.sessions.find(s => s.id === w.activeId)?.textOptions.ignoreLinePrefixes?.[0] === '//', 'prefix rule persisted')
+  assert.equal(await activeView().getByLabel('Ignore lines matching regex', { exact: true }).isDisabled(), true, 'regex uses native engine only')
+  await prefix.fill('')
+  await prefix.blur()
+  await page.getByRole('button', { name: 'Rules', exact: true }).click()
+  checks.push('Line-prefix filter is editable and persisted; browser does not claim native regex support.')
+
   // Real editor input -> semantic equality, accurate errors, then recovery.
   await page.locator('.sidebar').getByRole('button', { name: 'Structured compare', exact: true }).click()
   await activeView().locator('.structure-editors .monaco-editor').first().waitFor()
@@ -244,6 +258,17 @@ try {
   await page.getByText('Structurally equal', { exact: true }).waitFor()
   assert.equal(await activeView().locator('.parse-error').count(), 0)
   checks.push('JSON ignores object order, detects type changes, keeps canonical output read-only, and recovers after parse errors.')
+  // Apply a selected JSON member without touching another large integer.
+  await typeSource('left', '{"n":900719925474099312345,"keep":1}')
+  await typeSource('right', '{"n":0,"keep":2}')
+  const nChange = activeView().locator('.change-row').filter({ has: page.locator('.change-path', { hasText: /^\/n$/ }) })
+  await nChange.waitFor()
+  await nChange.click()
+  await activeView().getByRole('button', { name: 'To right', exact: true }).click()
+  await waitState(w => w?.sessions.find(s => s.id === w.activeId)?.right.content === '{"n":900719925474099312345,"keep":2}', 'lossless selected node merge')
+  await activeView().getByRole('button', { name: 'Undo', exact: true }).click()
+  await waitState(w => w?.sessions.find(s => s.id === w.activeId)?.right.content === '{"n":0,"keep":2}', 'undo selected node merge')
+  checks.push('Selected JSON node merge preserves large numbers, unrelated values and undo.')
 
 
   // Switch all locales through the actual settings UI. Verify a real localized

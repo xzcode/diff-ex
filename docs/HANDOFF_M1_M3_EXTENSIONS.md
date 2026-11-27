@@ -1,0 +1,7 @@
+# M1–M3 extensions
+
+- Text: explicit line-prefix filtering (trim leading whitespace before literal prefix match); native Rust regular-expression filtering on original lines. Invalid regex is a comparison error, not equality. Browser preview supports literal prefixes only. Rules affect statistics, not source edits or original hunk merging.
+- Folders: content-mode unique equal-size/equal-hash unmatched file pairs are possible move/rename candidates. Ambiguous copies, metadata-only results, symlinks and errors are excluded. Open both actual paths from either candidate row. This does not change sync plans, counts, delete or move files.
+- Structured: JSON Pointer node merge into either editable source, using original JSON token text. Adds/removes object members and ordered array elements; array additions must be in index order. Large numeric tokens retain exact spelling, unaffected target members retain original spelling; localized comma/whitespace changes may occur. The entire resulting JSON is validated before a single undoable editor edit. Stale comparisons and read-only canonical mode cannot merge. YAML/XML node rewriting remains future work.
+- All nine new messages are translated into the existing 12 languages (294 messages per catalog).
+- New tests cover source preservation, large numbers, pointer escapes, invalid/duplicate JSON, insertion/deletion, move ambiguity and prefix filtering. Native filesystem and platform installation tests remain separate from browser smoke.

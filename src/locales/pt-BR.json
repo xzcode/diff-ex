@@ -283,5 +283,14 @@
   "Texto",
   "Salvar arquivo como",
   "Salvar original como",
-  "Cancelar tarefa"
+  "Cancelar tarefa",
+  "Ignorar prefixos de linha (um por linha)",
+  "Ignorar linhas que correspondam à regex",
+  "O filtro regex exige o aplicativo de desktop.",
+  "A regex verifica as linhas originais antes das outras regras.",
+  "Prefixos ignoram espaços iniciais; regex verifica linhas originais.",
+  "A comparação mudou. Compare novamente antes de mesclar.",
+  "Movimentações possíveis",
+  "Possível movimentação",
+  "Caminhos únicos com conteúdo idêntico são possíveis movimentações; a sincronização não muda."
 ]

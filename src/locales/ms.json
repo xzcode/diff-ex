@@ -283,5 +283,14 @@
   "Teks",
   "Simpan fail sebagai",
   "Simpan fail asal sebagai",
-  "Batalkan tugas"
+  "Batalkan tugas",
+  "Abaikan awalan baris (satu setiap baris)",
+  "Abaikan baris yang sepadan dengan regex",
+  "Penapis regex memerlukan aplikasi desktop.",
+  "Regex memadankan baris asal sebelum peraturan lain.",
+  "Awalan mengabaikan ruang awal; regex memadankan baris asal.",
+  "Perbandingan berubah. Banding semula sebelum menggabung.",
+  "Kemungkinan pemindahan",
+  "Mungkin dipindah",
+  "Laluan unik dengan kandungan sama mungkin dipindah; penyegerakan tidak berubah."
 ]

@@ -283,5 +283,14 @@
   "Teks",
   "Simpan berkas sebagai",
   "Simpan berkas asli sebagai",
-  "Batalkan tugas"
+  "Batalkan tugas",
+  "Abaikan awalan baris (satu per baris)",
+  "Abaikan baris yang cocok dengan regex",
+  "Filter regex memerlukan aplikasi desktop.",
+  "Regex mencocokkan baris asli sebelum aturan lain.",
+  "Awalan mengabaikan spasi awal; regex mencocokkan baris asli.",
+  "Perbandingan berubah. Bandingkan lagi sebelum menggabung.",
+  "Kemungkinan pemindahan",
+  "Mungkin dipindah",
+  "Jalur unik dengan konten sama mungkin dipindah; sinkronisasi tidak berubah."
 ]

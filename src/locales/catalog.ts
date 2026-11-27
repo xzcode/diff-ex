@@ -284,7 +284,16 @@ export const english = [
   "Text",
   "Save file as",
   "Save original file as",
-  "Cancel task"
+  "Cancel task",
+  "Ignore line prefixes",
+  "Ignore lines matching regex",
+  "Regular expression filtering requires the desktop app.",
+  "Regex matches original lines before other rules.",
+  "Prefixes match after leading whitespace; regex matches original lines.",
+  "Comparison changed. Compare again before merging.",
+  "Possible moves",
+  "Possible move",
+  "Unique equal-content paths are possible moves; synchronization is unchanged."
 ] as const
 export const simplified = [
   "文本对比",
@@ -571,5 +580,14 @@ export const simplified = [
   "文本",
   "另存为",
   "原始文档另存为",
-  "取消任务"
+  "取消任务",
+  "忽略行前缀（每行一个）",
+  "忽略匹配正则的行",
+  "正则表达式过滤需要桌面版。",
+  "正则在其他规则之前匹配原始行。",
+  "前缀忽略行首空白后匹配；正则匹配原始行。",
+  "比较内容已变化，请重新比较后合并。",
+  "可能的移动或重命名",
+  "可能已移动",
+  "内容相同且唯一匹配的不同路径是移动候选；同步规则不变。"
 ] as const

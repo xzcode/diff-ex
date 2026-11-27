@@ -17,11 +17,11 @@
 | Workspace | Implemented behavior |
 | --- | --- |
 | Text and code | Editable side-by-side / inline diff, syntax highlighting, character-level visual differences, change navigation, two-way hunk merge, copy all, undo, find and folding unchanged regions |
-| Comparison rules | Native Myers, Patience and Histogram; ignore case, trim/all whitespace, blank lines and line-ending style |
+| Comparison rules | Native Myers, Patience and Histogram; ignore case, trim/all whitespace, blank lines, line-ending style, line prefixes and native regex matching |
 | Files | UTF-8, UTF-16LE/BE, GBK and GB18030; BOM and line-ending choices; stale-file detection; atomic save; Save As with an existing-target check |
-| Folders | Recursive content-hash or size/time comparison; `.gitignore`, custom exclusions, hidden files, status/path filtering, sorting, virtualized rows and opening a file pair |
+| Folders | Recursive content-hash or size/time comparison; `.gitignore`, custom exclusions, hidden files, status/path filtering, sorting, virtualized rows, possible moves based on unique matching content hashes, and opening a file pair |
 | Synchronization | Left/right updates, left/right mirrors and conservative two-way updates; full preview; cancellation; preflight revalidation; backups before overwrite/delete |
-| Structured data | JSON, YAML and XML semantic comparison; escaped paths, value/type changes, searchable virtualized results, precise errors and read-only canonical JSON |
+| Structured data | JSON, YAML and XML semantic comparison; escaped paths, value/type changes, searchable virtualized results, precise errors, read-only canonical JSON and source-preserving JSON node merge with undo |
 | Workspace | Multiple tabs, undo retained while switching tabs, named session snapshots, restoration of drafts/rules/settings, recoverable workspace snapshots |
 | Appearance | Pure black, gray, white, soft white and the original midnight theme; 12 interface languages with system detection; configurable font and word wrapping |
 
@@ -81,7 +81,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:1420`. The preview supports local text selection, editing, Myers comparison, JSON semantic comparison and downloading UTF-8 text. It explicitly reports that native filesystem synchronization, Patience/Histogram, YAML/XML semantic engines and non-UTF-8 saving require the desktop app. The preview does not simulate successful native operations.
+Open `http://localhost:1420`. The preview supports local text selection, editing, Myers comparison, JSON semantic comparison and downloading UTF-8 text. It explicitly reports that native filesystem synchronization, Patience/Histogram, regex filtering, YAML/XML semantic engines and non-UTF-8 saving require the desktop app. The preview does not simulate successful native operations.
 
 ## Everyday workflow
 

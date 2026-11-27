@@ -283,5 +283,14 @@
   "Texto",
   "Guardar archivo como",
   "Guardar original como",
-  "Cancelar tarea"
+  "Cancelar tarea",
+  "Ignorar prefijos de línea (uno por línea)",
+  "Ignorar líneas que coincidan con regex",
+  "El filtro regex requiere la aplicación de escritorio.",
+  "La regex se aplica a las líneas originales antes de otras reglas.",
+  "Los prefijos omiten los espacios iniciales; la regex comprueba las líneas originales.",
+  "La comparación cambió. Compare de nuevo antes de fusionar.",
+  "Movimientos posibles",
+  "Posible movimiento",
+  "Las rutas únicas con contenido idéntico son posibles movimientos; la sincronización no cambia."
 ]

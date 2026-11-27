@@ -283,5 +283,14 @@
   "Texte",
   "Enregistrer le fichier sous",
   "Enregistrer l’original sous",
-  "Annuler la tâche"
+  "Annuler la tâche",
+  "Ignorer les préfixes de ligne (un par ligne)",
+  "Ignorer les lignes correspondant à une regex",
+  "Le filtre regex nécessite l’application de bureau.",
+  "La regex s’applique aux lignes originales avant les autres règles.",
+  "Les préfixes ignorent les espaces initiaux ; la regex examine les lignes originales.",
+  "La comparaison a changé. Comparez à nouveau avant la fusion.",
+  "Déplacements possibles",
+  "Déplacement possible",
+  "Les chemins uniques au contenu identique sont des déplacements possibles ; la synchronisation ne change pas."
 ]

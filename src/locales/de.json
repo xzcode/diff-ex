@@ -283,5 +283,14 @@
   "Text",
   "Datei speichern unter",
   "Originaldatei speichern unter",
-  "Vorgang abbrechen"
+  "Vorgang abbrechen",
+  "Zeilenpräfixe ignorieren (eins pro Zeile)",
+  "Zeilen mit Regex-Treffern ignorieren",
+  "Regex-Filter erfordern die Desktop-App.",
+  "Regex wird vor anderen Regeln auf Originalzeilen angewendet.",
+  "Präfixe ignorieren führende Leerzeichen; Regex prüft Originalzeilen.",
+  "Vergleich geändert. Vor dem Zusammenführen erneut vergleichen.",
+  "Mögliche Verschiebungen",
+  "Mögliche Verschiebung",
+  "Eindeutige Pfade mit gleichem Inhalt sind Verschiebungskandidaten; Synchronisierung bleibt unverändert."
 ]
