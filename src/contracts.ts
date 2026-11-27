@@ -28,6 +28,8 @@ export interface TextOptions {
   whitespace: 'none' | 'trim' | 'all'
   ignoreBlankLines: boolean
   ignoreLineEndings: boolean
+  ignoreLinePrefixes?: string[]
+  ignoreLineRegex?: string
 }
 export interface TextHunk {
   leftStart: number

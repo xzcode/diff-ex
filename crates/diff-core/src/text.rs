@@ -3,6 +3,7 @@
 //! Rules change comparison keys only. The returned half-open hunk ranges always
 //! address original lines, including ignored blank lines and a final empty line.
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use similar::{capture_diff_slices, Algorithm, DiffTag};
 use std::ops::Range;
@@ -33,6 +34,8 @@ pub struct TextOptions {
     pub whitespace: Whitespace,
     pub ignore_blank_lines: bool,
     pub ignore_line_endings: bool,
+    pub ignore_line_prefixes: Vec<String>,
+    pub ignore_line_regex: String,
 }
 
 impl Default for TextOptions {
@@ -43,6 +46,8 @@ impl Default for TextOptions {
             whitespace: Whitespace::None,
             ignore_blank_lines: false,
             ignore_line_endings: true,
+            ignore_line_prefixes: Vec::new(),
+            ignore_line_regex: String::new(),
         }
     }
 }
@@ -112,11 +117,24 @@ fn original_lines(text: &str) -> Vec<(&str, Ending)> {
     lines
 }
 
-fn comparison_lines(text: &str, options: &TextOptions) -> Lines {
+fn comparison_lines(text: &str, options: &TextOptions, regex: Option<&Regex>) -> Lines {
+    let prefixes: Vec<&str> = options
+        .ignore_line_prefixes
+        .iter()
+        .map(|prefix| prefix.trim())
+        .filter(|prefix| !prefix.is_empty())
+        .collect();
     let mut keys = Vec::new();
     let mut original_indexes = Vec::new();
     for (index, (line, ending)) in original_lines(text).into_iter().enumerate() {
         if options.ignore_blank_lines && line.trim().is_empty() {
+            continue;
+        }
+        if prefixes
+            .iter()
+            .any(|prefix| line.trim_start().starts_with(*prefix))
+            || regex.is_some_and(|pattern| pattern.is_match(line))
+        {
             continue;
         }
         let mut normalized = match options.whitespace {
@@ -165,8 +183,13 @@ pub fn compare_text(
     right: &str,
     options: &TextOptions,
 ) -> Result<TextDiffResult, String> {
-    let left = comparison_lines(left, options);
-    let right = comparison_lines(right, options);
+    let regex = if options.ignore_line_regex.is_empty() {
+        None
+    } else {
+        Some(Regex::new(&options.ignore_line_regex).map_err(|err| err.to_string())?)
+    };
+    let left = comparison_lines(left, options, regex.as_ref());
+    let right = comparison_lines(right, options, regex.as_ref());
     let algorithm = match options.algorithm {
         TextAlgorithm::Myers => Algorithm::Myers,
         TextAlgorithm::Patience => Algorithm::Patience,
@@ -275,6 +298,39 @@ mod tests {
             }]
         );
         assert!(compare_text("\n \n", "", &options).unwrap().equal);
+    }
+
+    #[test]
+    fn prefixes_and_regex_preserve_original_coordinates() {
+        let options = TextOptions {
+            ignore_line_prefixes: vec!["#".into(), "  ".into()],
+            ignore_line_regex: "^DEBUG ".into(),
+            ..TextOptions::default()
+        };
+        let result = compare_text(
+            "head\n  # old\nDEBUG a\nold\ntail",
+            "head\n# new\nDEBUG b\nnew\ntail",
+            &options,
+        )
+        .unwrap();
+        assert_eq!(
+            result.hunks,
+            vec![TextHunk {
+                left_start: 3,
+                left_end: 4,
+                right_start: 3,
+                right_end: 4,
+            }]
+        );
+        assert!(compare_text("# old\nkeep", "# new\nkeep", &options)
+            .unwrap()
+            .equal);
+        assert!(!compare_text("x # old", "x # new", &options).unwrap().equal);
+        let invalid = TextOptions {
+            ignore_line_regex: "[".into(),
+            ..options
+        };
+        assert!(compare_text("a", "a", &invalid).is_err());
     }
 
     #[test]

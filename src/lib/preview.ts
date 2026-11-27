@@ -5,12 +5,15 @@ import type { TextOptions, TextDiffResult, StructuredOptions, StructuredResult, 
 
 export function previewText(left: string, right: string, options: TextOptions): TextDiffResult {
   if (options.algorithm !== 'myers') throw new Error('Patience and Histogram are available in the desktop app. Select Myers in the browser preview.')
+  if (options.ignoreLineRegex) throw new Error('Regular expression filtering requires the desktop app.')
+  const prefixes = (options.ignoreLinePrefixes || []).map(p => p.trim()).filter(Boolean)
   const prepare = (text: string) => {
     const lines = text.split(/\r\n|\r|\n/)
     const endings = text.match(/\r\n|\r|\n/g) || []
     const result: { text: string; line: number }[] = []
     lines.forEach((line, index) => {
       if (options.ignoreBlankLines && !line.trim()) return
+      if (prefixes.some(prefix => line.trimStart().startsWith(prefix))) return
       let value = options.whitespace === 'all' ? line.replace(/\s/g, '') : options.whitespace === 'trim' ? line.trim() : line
       if (options.ignoreCase) value = value.toLowerCase()
       if (!options.ignoreLineEndings) value += endings[index] || ''

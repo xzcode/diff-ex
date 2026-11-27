@@ -683,6 +683,7 @@ dependencies = [
  "encoding_rs",
  "ignore",
  "num-bigint",
+ "regex",
  "roxmltree",
  "serde",
  "serde_json",

@@ -8,7 +8,7 @@ export const newDocument = (): TextDocument => ({ path: null, name: 'Untitled', 
 export const metadataSignature = (doc: TextDocument): string => JSON.stringify([doc.encoding.toLowerCase(), doc.bom, doc.lineEnding])
 export function newSession(kind: CompareKind = 'text'): CompareSession {
   return { id: crypto.randomUUID(), title: '', kind, left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
-    textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true },
+    textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true, ignoreLinePrefixes: [], ignoreLineRegex: '' },
     structuredOptions: { format: 'json', ignoreArrayOrder: false, ignoreCase: false },
     leftRoot: '', rightRoot: '', directoryOptions: { method: 'content', showHidden: true, respectGitignore: true, excludes: [] } }
 }
@@ -28,6 +28,8 @@ function validSession(v: unknown): v is CompareSession {
   return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured'].includes(s.kind) &&
     validDocument(s.left) && validDocument(s.right) && typeof s.savedLeft === 'string' && typeof s.savedRight === 'string' &&
     typeof s.leftRoot === 'string' && typeof s.rightRoot === 'string' && !!s.textOptions && !!s.structuredOptions && !!s.directoryOptions &&
+    (s.textOptions.ignoreLinePrefixes === undefined || (Array.isArray(s.textOptions.ignoreLinePrefixes) && s.textOptions.ignoreLinePrefixes.every(p => typeof p === 'string'))) &&
+    (s.textOptions.ignoreLineRegex === undefined || typeof s.textOptions.ignoreLineRegex === 'string') &&
     ['myers', 'patience', 'histogram'].includes(s.textOptions.algorithm) && ['none', 'trim', 'all'].includes(s.textOptions.whitespace) &&
     ['ignoreCase', 'ignoreBlankLines', 'ignoreLineEndings'].every(k => typeof (s.textOptions as unknown as Record<string, unknown>)[k] === 'boolean') &&
     ['json', 'yaml', 'xml'].includes(s.structuredOptions.format) && typeof s.structuredOptions.ignoreCase === 'boolean' && typeof s.structuredOptions.ignoreArrayOrder === 'boolean' &&
