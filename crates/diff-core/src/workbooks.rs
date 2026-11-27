@@ -21,12 +21,24 @@ pub struct TableSheet {
 }
 fn workbook(asset: &AssetRef) -> Result<Sheets<BufReader<File>>, String> {
     let reader = BufReader::new(open_verified(asset)?);
-    let ext = Path::new(&asset.name).extension().and_then(|ext| ext.to_str()).unwrap_or("").to_ascii_lowercase();
+    let ext = Path::new(&asset.name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
     match ext.as_str() {
-        "xls" | "xla" => open_workbook_from_rs::<Xls<_>, _>(reader).map(Sheets::Xls).map_err(|e| e.to_string()),
-        "xlsx" | "xlsm" | "xlam" => open_workbook_from_rs::<Xlsx<_>, _>(reader).map(Sheets::Xlsx).map_err(|e| e.to_string()),
-        "xlsb" => open_workbook_from_rs::<Xlsb<_>, _>(reader).map(Sheets::Xlsb).map_err(|e| e.to_string()),
-        "ods" => open_workbook_from_rs::<Ods<_>, _>(reader).map(Sheets::Ods).map_err(|e| e.to_string()),
+        "xls" | "xla" => open_workbook_from_rs::<Xls<_>, _>(reader)
+            .map(Sheets::Xls)
+            .map_err(|e| e.to_string()),
+        "xlsx" | "xlsm" | "xlam" => open_workbook_from_rs::<Xlsx<_>, _>(reader)
+            .map(Sheets::Xlsx)
+            .map_err(|e| e.to_string()),
+        "xlsb" => open_workbook_from_rs::<Xlsb<_>, _>(reader)
+            .map(Sheets::Xlsb)
+            .map_err(|e| e.to_string()),
+        "ods" => open_workbook_from_rs::<Ods<_>, _>(reader)
+            .map(Sheets::Ods)
+            .map_err(|e| e.to_string()),
         _ => Err("Unsupported spreadsheet format.".into()),
     }
 }
@@ -56,9 +68,16 @@ pub fn read_sheet(asset: &AssetRef, sheet: &str) -> Result<TableSheet, String> {
     let mut book = workbook(asset)?;
     let range = book.worksheet_range(sheet).map_err(|e| e.to_string())?;
     let (row_start, col_start) = range.start().unwrap_or((0, 0));
-    let rows = range.rows().map(|row| row.iter().map(cell).collect()).collect();
+    let rows = range
+        .rows()
+        .map(|row| row.iter().map(cell).collect())
+        .collect();
     verify_asset(asset)?;
-    Ok(TableSheet { row_start, col_start, rows })
+    Ok(TableSheet {
+        row_start,
+        col_start,
+        rows,
+    })
 }
 #[cfg(test)]
 mod tests {
@@ -77,7 +96,10 @@ mod tests {
     fn read_actual_xlsx_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/sample.xlsx");
         let asset = crate::assets::inspect_asset(path).unwrap();
-        assert_eq!(sheet_names(&asset).unwrap(), vec!["Data".to_owned(), "Other".to_owned()]);
+        assert_eq!(
+            sheet_names(&asset).unwrap(),
+            vec!["Data".to_owned(), "Other".to_owned()]
+        );
         let sheet = read_sheet(&asset, "Data").unwrap();
         assert_eq!((sheet.row_start, sheet.col_start), (1, 1));
         assert_eq!(sheet.rows[0][0].as_ref().unwrap().value, "id");

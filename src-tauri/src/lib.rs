@@ -76,7 +76,10 @@ async fn workbook_sheets(asset: assets::AssetRef) -> Result<Vec<String>, String>
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn workbook_sheet(asset: assets::AssetRef, sheet: String) -> Result<workbooks::TableSheet, String> {
+async fn workbook_sheet(
+    asset: assets::AssetRef,
+    sheet: String,
+) -> Result<workbooks::TableSheet, String> {
     tauri::async_runtime::spawn_blocking(move || workbooks::read_sheet(&asset, &sheet))
         .await
         .map_err(|e| e.to_string())?

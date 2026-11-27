@@ -23,7 +23,10 @@ fn stamp(metadata: &Metadata) -> Result<String, String> {
 }
 fn verify_metadata(metadata: &Metadata, asset: &AssetRef) -> Result<(), String> {
     if !metadata.is_file() || metadata.len() != asset.size || stamp(metadata)? != asset.modified {
-        return Err(format!("File changed or is no longer a regular file: {}. Open it again.", asset.path));
+        return Err(format!(
+            "File changed or is no longer a regular file: {}. Open it again.",
+            asset.path
+        ));
     }
     Ok(())
 }
@@ -34,13 +37,20 @@ pub fn inspect_asset(path: &str) -> Result<AssetRef, String> {
     }
     Ok(AssetRef {
         path: path.to_owned(),
-        name: Path::new(path).file_name().ok_or("Invalid file name")?.to_string_lossy().into_owned(),
+        name: Path::new(path)
+            .file_name()
+            .ok_or("Invalid file name")?
+            .to_string_lossy()
+            .into_owned(),
         size: metadata.len(),
         modified: stamp(&metadata)?,
     })
 }
 pub(crate) fn verify_asset(asset: &AssetRef) -> Result<(), String> {
-    verify_metadata(&fs::metadata(&asset.path).map_err(|e| e.to_string())?, asset)
+    verify_metadata(
+        &fs::metadata(&asset.path).map_err(|e| e.to_string())?,
+        asset,
+    )
 }
 pub(crate) fn open_verified(asset: &AssetRef) -> Result<File, String> {
     verify_asset(asset)?;
@@ -58,7 +68,8 @@ pub fn read_asset_chunk(asset: &AssetRef, offset: u64, length: usize) -> Result<
         return Err("Offset is beyond the end of the file.".into());
     }
     let mut file = open_verified(asset)?;
-    file.seek(SeekFrom::Start(offset)).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(offset))
+        .map_err(|e| e.to_string())?;
     let mut bytes = vec![0; length.min((asset.size - offset).min(CHUNK as u64) as usize)];
     file.read_exact(&mut bytes).map_err(|e| e.to_string())?;
     verify_metadata(&file.metadata().map_err(|e| e.to_string())?, asset)?;
@@ -75,7 +86,11 @@ pub struct BinaryStats {
     pub first_difference: Option<u64>,
     pub last_difference: Option<u64>,
 }
-pub fn compare_binary(left: &AssetRef, right: &AssetRef, cancel: &AtomicBool) -> Result<BinaryStats, String> {
+pub fn compare_binary(
+    left: &AssetRef,
+    right: &AssetRef,
+    cancel: &AtomicBool,
+) -> Result<BinaryStats, String> {
     let mut a = open_verified(left)?;
     let mut b = open_verified(right)?;
     let mut x = vec![0u8; CHUNK];
@@ -134,8 +149,17 @@ mod tests {
         assert_eq!(read_asset_chunk(&a, 1, 99).unwrap(), [1, 2, 3]);
         assert!(read_asset_chunk(&a, 4, 5).unwrap().is_empty());
         assert!(read_asset_chunk(&a, 5, 1).is_err());
-        assert_eq!(compare_binary(&a, &b, &AtomicBool::new(false)).unwrap(),
-            BinaryStats { compared: 5, changed: 1, left_only: 0, right_only: 1, first_difference: Some(1), last_difference: Some(4) });
+        assert_eq!(
+            compare_binary(&a, &b, &AtomicBool::new(false)).unwrap(),
+            BinaryStats {
+                compared: 5,
+                changed: 1,
+                left_only: 0,
+                right_only: 1,
+                first_difference: Some(1),
+                last_difference: Some(4)
+            }
+        );
         assert!(compare_binary(&a, &b, &AtomicBool::new(true)).is_err());
         fs::write(&l, [0, 1]).unwrap();
         assert!(read_asset_chunk(&a, 0, 1).is_err());
