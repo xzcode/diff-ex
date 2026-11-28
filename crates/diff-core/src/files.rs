@@ -349,6 +349,26 @@ fn verify_save_target(path: &Path, expected: Option<&str>) -> Result<Option<Meta
     }
 }
 
+/// Reject aliases and hard links to input documents before delegating to the
+/// normal fingerprint-checked, atomic save path.
+pub fn save_merge_result(
+    request: SaveTextRequest,
+    sources: &[String],
+) -> Result<TextDocument, String> {
+    let target = Path::new(&request.path);
+    for source in sources {
+        let original = Path::new(source);
+        if original == target
+            || (target.exists()
+                && original.exists()
+                && same_file::is_same_file(target, original).map_err(|e| e.to_string())?)
+        {
+            return Err("Choose a result file separate from the three sources.".into());
+        }
+    }
+    save_text(request)
+}
+
 pub fn save_text(request: SaveTextRequest) -> Result<TextDocument, String> {
     let _write_guard = WRITE_LOCK
         .lock()
@@ -388,6 +408,34 @@ pub fn save_text(request: SaveTextRequest) -> Result<TextDocument, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn merge_result_cannot_overwrite_a_source_or_hardlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.txt");
+        let alias = dir.path().join("alias.txt");
+        let output = dir.path().join("result.txt");
+        fs::write(&source, "original").unwrap();
+        fs::hard_link(&source, &alias).unwrap();
+        let original = read_text(source.to_str().unwrap(), None).unwrap();
+        let sources = vec![path_string(&source).unwrap()];
+        let request = SaveTextRequest {
+            path: path_string(&source).unwrap(),
+            content: "merged".into(),
+            encoding: "UTF-8".into(),
+            bom: false,
+            line_ending: LineEnding::Lf,
+            expected_fingerprint: original.fingerprint,
+        };
+        assert!(save_merge_result(request.clone(), &sources).is_err());
+        let mut request = request;
+        request.path = path_string(&alias).unwrap();
+        assert!(save_merge_result(request.clone(), &sources).is_err());
+        request.path = path_string(&output).unwrap();
+        request.expected_fingerprint = None;
+        save_merge_result(request, &sources).unwrap();
+        assert_eq!(fs::read_to_string(source).unwrap(), "original");
+        assert_eq!(fs::read_to_string(output).unwrap(), "merged");
+    }
     #[test]
     fn save_refuses_stale_or_unconfirmed_overwrite() {
         let dir = tempfile::tempdir().unwrap();

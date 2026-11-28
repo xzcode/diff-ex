@@ -117,6 +117,15 @@ async fn inspect_save_target(path: String) -> Result<Option<String>, String> {
         .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+async fn save_merge_result(
+    request: files::SaveTextRequest,
+    sources: Vec<String>,
+) -> Result<files::TextDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || files::save_merge_result(request, &sources))
+        .await
+        .map_err(|e| e.to_string())?
+}
+#[tauri::command]
 async fn save_text_file(request: files::SaveTextRequest) -> Result<files::TextDocument, String> {
     tauri::async_runtime::spawn_blocking(move || files::save_text(request))
         .await
@@ -319,6 +328,7 @@ pub fn run() {
             read_text_file,
             inspect_save_target,
             save_text_file,
+            save_merge_result,
             compare_texts,
             compare_structures,
             compare_folders,
