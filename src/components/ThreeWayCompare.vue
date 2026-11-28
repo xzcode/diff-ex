@@ -14,19 +14,22 @@ const draft=computed(()=>props.session.merge!)
 const sources:Source[]=['base','left','right']
 const doc=(side:Source):TextDocument=>side==='base'?draft.value.base:props.session[side]
 const title=(side:Source)=>t(({base:'Base version',left:'LEFT',right:'RIGHT'})[side])
-const plan=computed(()=>draft.value.prepared?planThreeWay(draft.value.base.content,props.session.left.content,props.session.right.content):[])
+const localError=ref('')
+const plan=ref<MergeSegment[]>([])
+watch([()=>draft.value.prepared,()=>draft.value.base.content,()=>props.session.left.content,()=>props.session.right.content],([prepared,base,left,right])=>{try{plan.value=prepared?planThreeWay(base,left,right):[]}catch(e){plan.value=[];localError.value=String(e)}})
 const conflicts=computed(()=>plan.value.filter(s=>s.kind==='conflict'))
 const autoCount=computed(()=>plan.value.filter(s=>s.kind!=='same'&&s.kind!=='conflict').length)
 const unresolved=computed(()=>conflicts.value.filter(s=>!Object.hasOwn(draft.value.resolutions,s.id)).length)
-const ready=computed(()=>draft.value.prepared&&unresolved.value===0)
-const selected=ref(0),editingManual=ref(false),manualValue=ref(''),localError=ref('')
+const ready=computed(()=>draft.value.prepared&&!localError.value&&unresolved.value===0)
+const selected=ref(0),editingManual=ref(false),manualValue=ref('')
+try{if(draft.value.prepared)plan.value=planThreeWay(draft.value.base.content,props.session.left.content,props.session.right.content)}catch(e){localError.value=String(e)}
 const current=computed(()=>conflicts.value[Math.min(selected.value,Math.max(0,conflicts.value.length-1))])
 const currentChoice=computed(()=>current.value?draft.value.resolutions[current.value.id]:undefined)
 function refreshManual(){
   editingManual.value=false
   manualValue.value=currentChoice.value?.choice==='manual'?currentChoice.value.text:current.value?.left||''
 }
-watch([current,currentChoice],refreshManual)
+watch([current,currentChoice],refreshManual,{immediate:true})
 function commit(next:MergeDraft){
   const text=mergeText(plan.value,next.resolutions)
   if(text!==null){next.output={...next.output,content:text};next.manual=false}

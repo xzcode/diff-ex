@@ -23,7 +23,7 @@ const right=computed(()=>makeReader(props.session.assetSources?.right??null,brow
 const settings=computed(()=>({...defaultAssetSettings(),...props.session.assetSettings}))
 const readerFor=(side:Side)=>side==='left'?left.value:right.value
 const sourceFor=(side:Side)=>props.session.assetSources?.[side]??null
-const accept=computed(()=>props.session.kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.ico':props.session.kind==='archive'?'.zip,.jar,.apk,.war,.tar,.tar.gz,.tgz,.gz':props.session.kind==='table'?'.csv,.tsv,.tab,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods':'*')
+const accept=computed(()=>props.session.kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.ico':props.session.kind==='archive'?'.zip,.jar,.apk,.war,.tar,.tar.gz,.tgz,.gz,.7z':props.session.kind==='table'?'.csv,.tsv,.tab,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods':'*')
 function register(side:Side,value:unknown){if(value instanceof HTMLInputElement)inputs[side]=value}
 function setSource(side:Side,value:AssetRef|null){
   emit('update-source',side,value)
