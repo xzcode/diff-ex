@@ -9,3 +9,4 @@ pub mod text;
 pub mod workbooks;
 pub mod git_compare;
 pub mod snapshots;
+pub mod remote;
