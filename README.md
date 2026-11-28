@@ -10,7 +10,7 @@
 
 **Diff EX is an offline desktop comparison and merge tool for Windows, macOS and Linux.** It combines an editable two-pane workspace with an independent Rust comparison engine. No account, server, telemetry or file upload is needed.
 
-> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M9 feature set are implemented, including Git/SFTP snapshots and document extraction/comparison. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
+> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M11 feature set is implemented, including database comparison and a standalone CLI/batch runner. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
 
 ## What works
 
@@ -57,6 +57,23 @@ Three-way merge is line-based and uses a conservative overlap policy. Directory 
 - DOCX/DOCM reads paragraphs, table cell text, header/footer/notes and package/property structural signatures. PDF reads page text and page geometry/content signatures using lopdf. Extraction warnings are displayed rather than silently classifying unavailable content as equal. Legacy DOC text needs optional local `antiword`; rendered PDF page side-by-side and heatmaps need optional local Poppler `pdftoppm` on PATH. These tools are not included in the installers. Word layout comparison is structural, not a full rendered Word layout engine.
 
 Git/SFTP/document extraction require the desktop app. Detached text copies opened explicitly can be retained by local workspace autosave. Native SSH authentication availability depends on server and agent/key compatibility. These are read-only comparison baselines; Git index-only mode, Git rename alignment, remote writes/sync, Word page rendering, OCR and encrypted document support remain future work.
+
+## Databases and automation
+
+- Database comparison: SQLite, MySQL/MariaDB, PostgreSQL and MongoDB. Compare selected tables or collections on two sources of the same engine, column definitions, primary keys, indexes, supported constraint metadata and keyed records. Automatically use matching primary keys (MongoDB: `_id`) or enter composite unique non-null keys. Ignore selected fields, inspect changed records and export JSON or HTML reports. No database writes or generated migration SQL. Connections are reusable; passwords are transient. TLS certificate verification is enabled by default for network engines.
+- Batch workspace: add multiple text, structured, binary, folder, archive and document comparisons; run sequentially, cancel between/within supported operations, inspect results and export a versioned task manifest or consolidated report.
+- Standalone CLI: run local comparisons without the desktop UI. JSON/HTML reports, non-overwriting output, exit codes 0 (equal), 1 (different), 2 (error/incomplete). A Git comparison is also available. Build with `cargo build --locked --release -p diff-ex-cli`.
+
+Examples:
+
+```sh
+diff-ex-cli compare text old.txt new.txt --output report.json
+diff-ex-cli compare structured old.json new.json --structured-format json
+diff-ex-cli compare git /path/repo /path/repo --left-revision HEAD --right-revision WORKTREE
+diff-ex-cli batch tasks.json --format html --output report.html
+```
+
+Database comparisons keep row indexes in memory; use stable snapshots or pause writes, especially for MongoDB and nontransactional SQL tables. PostgreSQL data comparison uses typed server text values and MongoDB preserves BSON value types and nested order. Comparisons are per selected relation, not complete database migration analysis. Reports may include sensitive record values and source paths; handle them locally. CLI batch currently supports local file/folder/document/archive/structured and Git tasks, not database or SFTP credentials.
 
 ## Screenshots
 

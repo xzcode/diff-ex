@@ -45,7 +45,7 @@ impl DbReader for Reader {
     fn schema(&mut self, relation: &str) -> Result<DbSchema, String> {
         let table:Option<(Option<String>,Option<String>,String)>=self.conn.exec_first("SELECT ENGINE,TABLE_COLLATION,COALESCE(CREATE_OPTIONS,'') FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND TABLE_TYPE='BASE TABLE'",(relation,)).map_err(err)?;
         let table = table.ok_or("Base table not found.")?;
-        let columns=self.conn.exec_map("SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,COLLATION_NAME,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION",(relation,),
+        let columns=self.conn.exec_map("SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,COLLATION_NAME,COALESCE(GENERATION_EXPRESSION,'') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION",(relation,),
             |(name,data_type,nullable,default_value,extra,charset,collation,generation):(String,String,String,Option<String>,String,Option<String>,Option<String>,String)| DbColumn{name,data_type,nullable:nullable=="YES",default_value,extra:serde_json::json!([extra,charset,collation,generation]).to_string()}).map_err(err)?;
         let primary_key=self.conn.exec_map("SELECT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX",(relation,),|name:String|name).map_err(err)?;
         let mut objects = vec![DbObject {

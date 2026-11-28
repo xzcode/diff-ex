@@ -34,3 +34,7 @@ Vite, TypeScript, vue-tsc, Vitest and Playwright are development/build/verificat
 - git2 0.21 (MIT/Apache-2.0), vendored libgit2: read local Git objects and working trees.
 - ssh2 0.9 (MIT/Apache-2.0), libssh2 and vendored OpenSSL: read-only SFTP with pinned server host keys.
 - lopdf 0.47 (MIT): PDF extraction. Optional system antiword and pdftoppm/Poppler executables are not redistributed with the app. Users install those separately. See Cargo.lock for exact dependency versions.
+
+## Database drivers
+
+- rusqlite 0.43 (MIT), bundled SQLite; mysql 28 (MIT/Apache-2.0); postgres 0.19 and postgres-native-tls (MIT/Apache-2.0); mongodb 3.10 (Apache-2.0), BSON 2.x; native-tls and Tokio runtime. Exact transitive versions are in Cargo.lock.

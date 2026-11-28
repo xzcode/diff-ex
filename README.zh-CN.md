@@ -10,7 +10,7 @@
 
 **Diff EX 是 EX 系列的本地离线桌面对比与合并工具，目标平台为 Windows、macOS、Linux。** 界面采用 Vue 3 + Monaco，原生文件操作和对比引擎使用 Rust，通过 Tauri 2 连接。无需注册、服务端或上传文件，没有遥测。
 
-> **当前状态：v0.1.0 开发基线。** M0 工程基础与 M1–M9 首版核心功能已落地，新增 Git/SFTP 和文档比较。；最初规划的完整专业工具功能仍按阶段推进。具体已完成和未完成范围见[阶段计划](docs/ROADMAP.md)及[交接记录](docs/HANDOFF_2026-11-27.md)。
+> **当前状态：v0.1.0 开发基线。** M0 工程基础与 M1–M11 首版核心功能已实现，新增数据库比较与独立 CLI/批量任务。；最初规划的完整专业工具功能仍按阶段推进。具体已完成和未完成范围见[阶段计划](docs/ROADMAP.md)及[交接记录](docs/HANDOFF_2026-11-27.md)。
 
 ## 已实现
 
@@ -57,6 +57,21 @@
 - DOCX/DOCM：提取段落、表格、页眉页脚、注释和脚注等文字及包结构、属性签名；PDF：提取页面文本、页面尺寸和结构签名。无法提取内容明确标为不可用。旧 DOC 文本需可选本地 antiword；PDF 页面像素对比需可选本地 Poppler 的 pdftoppm（PATH 中），安装包不内置这些工具。Word 版式为结构属性比较，不是完整的 Word 页面渲染。
 
 Git/SFTP/文档提取需要桌面版。主动打开的独立文本副本可以被本地工作区自动保存。Git 暂存区单独比较、重命名对齐、远程同步写入、Word 页面真实渲染、OCR、加密文档支持尚待完善。
+
+## 数据库与自动化
+
+- 数据库比较：SQLite、MySQL/MariaDB、PostgreSQL、MongoDB。同引擎两侧选定表或集合，比较字段结构、主键、索引、支持的约束元数据及记录。自动使用匹配主键（MongoDB 使用 `_id`），或配置复合唯一非空键；支持忽略字段、查看记录详情、JSON/HTML 报告。连接可复用，密码仅驻留内存，网络连接默认验证 TLS 证书。只读，不生成或执行迁移 SQL。
+- 批量工作区：配置文本、结构化、二进制、目录、压缩包、文档任务，顺序执行、取消、查看结果、导出可复用任务清单和 JSON/HTML 汇总报告。
+- 独立 CLI：无需桌面 UI，支持上述本地比较及 Git；0 表示相同，1 表示存在差异，2 表示失败或比较不完整；报告文件默认不可覆盖。构建命令 `cargo build --locked --release -p diff-ex-cli`。
+
+```sh
+diff-ex-cli compare text old.txt new.txt --output report.json
+diff-ex-cli compare structured old.json new.json --structured-format json
+diff-ex-cli compare git /path/repo /path/repo --left-revision HEAD --right-revision WORKTREE
+diff-ex-cli batch tasks.json --format html --output report.html
+```
+
+数据库记录索引保存在内存；请使用一致性快照或暂停写入，尤其是 MongoDB 和非事务表。PostgreSQL 使用带类型的服务端文本值，MongoDB 保留 BSON 类型和嵌套顺序。当前比较范围是所选表/集合，非全库迁移分析。报告可能含敏感记录和路径，应妥善保管。CLI 暂不运行数据库或 SFTP 凭据任务。
 
 ## 界面截图
 

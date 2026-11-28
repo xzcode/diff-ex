@@ -12,7 +12,7 @@
 
 English, Simplified Chinese, Traditional Chinese, Japanese, Korean, German, French, Spanish, Brazilian Portuguese, Russian, Malay, and Indonesian. The system option resolves regional tags (e.g. zh-Hant-HK → zh-TW, pt-PT → pt-BR, ms-MY → ms). Unknown system languages fall back to English.
 
-The application-owned catalog contains 433 message identifiers with complete translations in each supported language. User-provided text, names, paths, technical format identifiers and raw engine diagnostics are not translated. OS dialogs and Monaco's built-in commands may use their own language; app-specific Monaco commands are re-registered on language change without recreating editor models.
+The application-owned catalog contains 473 message identifiers with complete translations in each supported language. User-provided text, names, paths, technical format identifiers and raw engine diagnostics are not translated. OS dialogs and Monaco's built-in commands may use their own language; app-specific Monaco commands are re-registered on language change without recreating editor models.
 
 To add a locale, append new message identifiers to `src/locales/catalog.ts` without changing existing positions, supply a complete array in `src/locales/<locale>.json`, register the locale in `contracts.ts` and `lib/i18n.ts`, and run `npm test`. The validation checks catalog completeness and numbered interpolation arguments. Do not silently fall back to English for incomplete published locales.
 

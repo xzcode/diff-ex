@@ -110,6 +110,32 @@ jobs:
         run: npm run desktop:build -- --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
         env:
           APPLE_SIGNING_IDENTITY: '-'
+      - name: Build standalone CLI
+        shell: bash
+        run: |
+          mkdir -p cli-dist
+          if [ "${{ matrix.target }}" = "universal-apple-darwin" ]; then
+            cargo build --locked -p diff-ex-cli --release --target aarch64-apple-darwin
+            cargo build --locked -p diff-ex-cli --release --target x86_64-apple-darwin
+            lipo -create target/aarch64-apple-darwin/release/diff-ex-cli target/x86_64-apple-darwin/release/diff-ex-cli -output cli-dist/diff-ex-cli
+            codesign --force --sign - cli-dist/diff-ex-cli
+            (cd cli-dist && zip diff-ex-cli-macos-universal.zip diff-ex-cli)
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            cargo build --locked -p diff-ex-cli --release --target "${{ matrix.target }}"
+            cp "target/${{ matrix.target }}/release/diff-ex-cli.exe" cli-dist/
+            powershell.exe -NoProfile -Command "Compress-Archive -Path cli-dist/diff-ex-cli.exe -DestinationPath cli-dist/diff-ex-cli-windows-x64.zip"
+          else
+            cargo build --locked -p diff-ex-cli --release --target "${{ matrix.target }}"
+            cp "target/${{ matrix.target }}/release/diff-ex-cli" cli-dist/
+            tar -czf cli-dist/diff-ex-cli-linux-x64.tar.gz -C cli-dist diff-ex-cli
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: diff-ex-cli-${{ matrix.name }}
+          path: |
+            cli-dist/*.zip
+            cli-dist/*.tar.gz
+          if-no-files-found: error
       - name: Package macOS app preserving permissions and links
         if: runner.os == 'macOS'
         run: ditto -c -k --sequesterRsrc --keepParent "target/universal-apple-darwin/release/bundle/macos/Diff EX.app" "target/universal-apple-darwin/release/bundle/Diff-EX-macos-universal.zip"
