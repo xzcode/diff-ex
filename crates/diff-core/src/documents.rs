@@ -410,9 +410,18 @@ mod tests {
         doc.trailer.set("Root", catalog);
         let mut bytes = Vec::new();
         doc.save_to(&mut bytes).unwrap();
-        let units = pdf(Cursor::new(bytes), &AtomicBool::new(false)).unwrap();
+        let units = pdf(Cursor::new(&bytes), &AtomicBool::new(false)).unwrap();
         assert_eq!(units.len(), 1);
         assert!(units[0].text.contains("Diff EX"));
         assert!(units[0].layout.contains("MediaBox"));
+        if std::env::var_os("DIFF_EX_TEST_PDF_RENDER").is_some() {
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("page.pdf");
+            fs::write(&path, &bytes).unwrap();
+            let asset = crate::assets::inspect_asset(path.to_str().unwrap()).unwrap();
+            let png = render_pdf(&asset, 1, 96, &AtomicBool::new(false)).unwrap();
+            assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+            assert!(png.len() > 32);
+        }
     }
 }

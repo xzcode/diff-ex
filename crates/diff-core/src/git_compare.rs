@@ -29,7 +29,7 @@ pub fn refs(repository: &str) -> Result<Vec<String>, String> {
     let mut names = BTreeSet::new();
     for reference in repo.references().map_err(|e| e.to_string())? {
         let r = reference.map_err(|e| e.to_string())?;
-        if let Some(name) = r.name() {
+        if let Ok(name) = r.name() {
             if name.starts_with("refs/heads/")
                 || name.starts_with("refs/remotes/")
                 || name.starts_with("refs/tags/")
@@ -75,7 +75,7 @@ fn version_index(
         let mut index = Index::new();
         for status in statuses.iter() {
             cancelled(cancel)?;
-            let path = status.path().ok_or("Non-Unicode Git working tree path")?;
+            let path = status.path().map_err(|e| e.to_string())?;
             let mode = index_entries
                 .get_path(std::path::Path::new(path), 0)
                 .map(|e| e.mode);
@@ -95,6 +95,22 @@ fn version_index(
                 Some(0o100644) => Some("100644".into()),
                 _ => None,
             };
+            #[cfg(unix)]
+            let mode = {
+                use std::os::unix::fs::PermissionsExt;
+                let full = root.join(path);
+                match std::fs::symlink_metadata(&full) {
+                    Ok(meta) if meta.is_file() => Some(
+                        if meta.permissions().mode() & 0o111 != 0 {
+                            "100755"
+                        } else {
+                            "100644"
+                        }
+                        .into(),
+                    ),
+                    _ => mode,
+                }
+            };
             if let Some(item) = snapshots::local_item(root, path, mode, cancel)? {
                 snapshots::add(&mut index, item)?;
             }
@@ -108,7 +124,7 @@ fn version_index(
     tree.walk(TreeWalkMode::PreOrder, |root, entry| {
         let result = (|| {
             cancelled(cancel)?;
-            let path = format!("{root}{}", entry.name().ok_or("Non-Unicode Git tree path")?);
+            let path = format!("{root}{}", entry.name().map_err(|e| e.to_string())?);
             let mode = entry.filemode();
             if entry.kind() == Some(ObjectType::Tree) {
                 return Ok(());
