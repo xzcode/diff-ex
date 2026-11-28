@@ -1,5 +1,5 @@
 use diff_ex_core::{
-    archives, assets, database, directories, documents, files, git_compare, remote, structured, sync, text,
+    archives, assets, batch, database, directories, documents, files, git_compare, remote, structured, sync, text,
     workbooks,
 };
 use std::{
@@ -36,6 +36,12 @@ impl AppState {
     }
 }
 
+#[tauri::command]
+async fn run_batch_task(state:State<'_,AppState>,task:batch::BatchTask,job_id:String)->Result<batch::TaskResult,String>{
+    let flag=state.start(&job_id)?;
+    let result=tauri::async_runtime::spawn_blocking(move||batch::run_task(&task,&flag)).await.map_err(|e|e.to_string());
+    state.finish(&job_id);result
+}
 #[tauri::command]
 async fn database_catalog(request:database::DbRequest)->Result<Vec<String>,String>{
     tauri::async_runtime::spawn_blocking(move||database::catalog(&request)).await.map_err(|e|e.to_string())?
@@ -433,6 +439,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
+            run_batch_task,
             database_catalog,
             compare_database,
             git_refs,

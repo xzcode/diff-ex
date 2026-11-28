@@ -82,7 +82,7 @@ function arrayValue(event:Event){return (event.target as HTMLTextAreaElement).va
 async function saveReport(format:'json'|'html'){
   if(!result.value||reporting.value)return
   reporting.value=true
-  try{const saved=await exportReport('database-comparison',{version:1,kind:'database',left:{engine:src('left').profile.engine,relation:src('left').relation},right:{engine:src('right').profile.engine,relation:src('right').relation},options:clone(opts.value),result:clone(result.value)},format,path=>t('Replace existing file?',path));if(saved)notice.value=t('Report exported.')}
+  try{const saved=await exportReport('database-comparison',{version:1,kind:'database',left:{engine:src('left').profile.engine,relation:src('left').relation},right:{engine:src('right').profile.engine,relation:src('right').relation},options:clone(opts.value),result:clone(result.value)},format,path=>t('Replace the existing file?\n{0}',path),sides.map(side=>src(side).profile.path).filter(Boolean));if(saved)notice.value=t('Report exported.')}
   catch(e){error.value=String(e)}finally{reporting.value=false}
 }
 onBeforeUnmount(()=>{alive=false;stop();secrets.value={left:'',right:''}})

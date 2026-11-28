@@ -1,0 +1,12 @@
+[package]
+name = "diff-ex-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Diff EX offline command line and batch runner"
+
+[dependencies]
+diff-ex-core = { path = "../diff-core" }
+serde_json = "1"
+tempfile = "3"

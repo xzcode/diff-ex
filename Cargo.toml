@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/diff-core", "src-tauri"]
+members = ["crates/diff-core", "crates/diff-cli", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
