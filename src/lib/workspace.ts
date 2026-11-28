@@ -1,9 +1,28 @@
 import { isLocale } from './i18n'
-import type { AssetRef, AssetSettings, MergeDraft, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
+import type { AssetRef, AssetSettings, MergeDraft, GitSelection, RemoteSelection, SshProfile, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
 
 export interface SavedSession { id: string; name: string; savedAt: string; session: CompareSession }
 export interface Workspace { version: 1; sessions: CompareSession[]; activeId: string; preferences: Preferences; savedSessions: SavedSession[] }
 export const defaultPreferences: Preferences = { theme: 'dark', locale: 'system', fontSize: 13, wordWrap: false, showSidebar: true }
+export const defaultGitSource = (revision='HEAD'):GitSelection => ({repository:'',revision})
+export const defaultSshProfile = ():SshProfile => ({name:'',host:'',port:22,username:'',fingerprint:'',auth:'agent',keyPath:''})
+export const defaultRemoteSource = (kind:RemoteSelection['kind']='sftp'):RemoteSelection => ({kind,path:'',profile:defaultSshProfile()})
+function validSshProfile(value:unknown):value is SshProfile{
+  if(!value||typeof value!=='object')return false
+  const p=value as SshProfile
+  return ['name','host','username','fingerprint','keyPath'].every(k=>typeof (p as unknown as Record<string,unknown>)[k]==='string') &&
+    Number.isInteger(p.port)&&p.port>=1&&p.port<=65535&&['agent','key','password'].includes(p.auth)
+}
+function validGitSource(v:unknown):v is GitSelection{
+  if(!v||typeof v!=='object')return false
+  const s=v as GitSelection
+  return typeof s.repository==='string'&&typeof s.revision==='string'
+}
+function validRemoteSource(v:unknown):v is RemoteSelection{
+  if(!v||typeof v!=='object')return false
+  const s=v as RemoteSelection
+  return ['local','sftp'].includes(s.kind)&&typeof s.path==='string'&&validSshProfile(s.profile)
+}
 export const defaultAssetSettings = (): AssetSettings => ({
   binaryOffset: 0, binaryPageSize: 512, imageMode: 'side', imageTolerance: 0, imageMix: 50,
   tableDelimiter: 'auto', tableEncoding: 'auto', tableHeader: true, tableColumnMode: 'position',
@@ -34,7 +53,7 @@ export function newMergeDraft(): MergeDraft {
   return { base: newDocument(), savedBase: '', output, savedOutput: '', savedOutputMetadata: metadataSignature(output), prepared: false, manual: false, resolutions: {} }
 }
 export function newSession(kind: CompareKind = 'text'): CompareSession {
-  return { id: crypto.randomUUID(), title: '', kind, ...(kind === 'merge' ? { merge: newMergeDraft() } : {}), assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
+  return { id: crypto.randomUUID(), title: '', kind, ...(kind === 'merge' ? { merge: newMergeDraft() } : {}), ...(kind === 'git' ? {gitSources:{left:defaultGitSource(),right:defaultGitSource('WORKTREE')}} : {}), ...(kind === 'remote' ? {remoteSources:{left:defaultRemoteSource('local'),right:defaultRemoteSource()}} : {}), assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
     textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true, ignoreLinePrefixes: [], ignoreLineRegex: '' },
     structuredOptions: { format: 'json', ignoreArrayOrder: false, ignoreCase: false },
     leftRoot: '', rightRoot: '', directoryOptions: { method: 'content', showHidden: true, respectGitignore: true, excludes: [] } }
@@ -60,7 +79,9 @@ function validMerge(value: unknown): boolean {
 function validSession(v: unknown): v is CompareSession {
   if (!v || typeof v !== 'object') return false
   const s = v as CompareSession
-  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table','merge','archive'].includes(s.kind) &&
+  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table','merge','archive','git','remote','document'].includes(s.kind) &&
+    (s.kind !== 'git' || (!!s.gitSources && validGitSource(s.gitSources.left) && validGitSource(s.gitSources.right))) &&
+    (s.kind !== 'remote' || (!!s.remoteSources && validRemoteSource(s.remoteSources.left) && validRemoteSource(s.remoteSources.right))) &&
     (s.kind !== 'merge' ? s.merge === undefined : validMerge(s.merge)) &&
     (s.assetSources === undefined || (!!s.assetSources && validAsset(s.assetSources.left) && validAsset(s.assetSources.right))) &&
     (s.assetSettings === undefined || validAssetSettings(s.assetSettings)) &&
@@ -83,7 +104,7 @@ export function decodeWorkspace(text: string): Workspace {
     throw new Error('The workspace has an unsupported version or malformed session data.')
   }
   const p = w.preferences
-  if (!p || !['dark', 'black', 'gray', 'white', 'light'].includes(p.theme) || !isLocale(p.locale) ||
+  if (!p || (p.remoteProfiles!==undefined && (!Array.isArray(p.remoteProfiles)||!p.remoteProfiles.every(validSshProfile)||new Set(p.remoteProfiles.map(v=>v.name)).size!==p.remoteProfiles.length)) || !['dark', 'black', 'gray', 'white', 'light'].includes(p.theme) || !isLocale(p.locale) ||
     !Number.isFinite(p.fontSize) || p.fontSize < 8 || p.fontSize > 40 || typeof p.wordWrap !== 'boolean' || typeof p.showSidebar !== 'boolean') throw new Error('Invalid workspace preferences')
   if (new Set(w.sessions.map(s => s.id)).size !== w.sessions.length) throw new Error('Duplicate session identifiers')
   w.activeId = w.sessions.some(s => s.id === w.activeId) ? w.activeId : w.sessions[0]?.id || ''

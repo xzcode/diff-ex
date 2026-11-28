@@ -1,5 +1,5 @@
 export type Side = 'left' | 'right'
-export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table' | 'merge' | 'archive'
+export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table' | 'merge' | 'archive' | 'git' | 'remote' | 'document'
 export type Theme = 'dark' | 'black' | 'gray' | 'white' | 'light'
 export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt-BR' | 'ru' | 'ms' | 'id'
 export type Locale = 'system' | Language
@@ -156,7 +156,19 @@ export interface MergeDraft {
 export interface ArchiveItem { path: string; kind: 'file' | 'directory' | 'link' | 'special'; size: number; fingerprint: string | null; error: string | null }
 export interface ArchiveEntry { path: string; status: 'same' | 'different' | 'leftOnly' | 'rightOnly' | 'conflict' | 'error'; left: ArchiveItem | null; right: ArchiveItem | null }
 export interface ArchiveResult { entries: ArchiveEntry[]; leftFormat: string; rightFormat: string }
+export interface SnapshotItem { path:string;kind:string;size:number;fingerprint:string|null;mode:string|null;error:string|null }
+export interface SnapshotEntry { path:string;status:EntryStatus;left:SnapshotItem|null;right:SnapshotItem|null }
+export interface GitSelection { repository:string;revision:string }
+export interface GitResult { left:GitSelection;right:GitSelection;entries:SnapshotEntry[] }
+export interface SshProfile { name:string;host:string;port:number;username:string;fingerprint:string;auth:'agent'|'key'|'password';keyPath:string }
+export interface RemoteSelection { kind:'local'|'sftp';path:string;profile:SshProfile }
+export interface RemoteRequest { source:RemoteSelection;secret:string|null }
+export interface RemoteResult { left:RemoteSelection;right:RemoteSelection;entries:SnapshotEntry[] }
+export interface DocUnit { label:string;text:string;layout:string;layoutFingerprint:string|null;warning:string|null;page:number|null }
+export interface DocumentData { format:string;units:DocUnit[];notes:string[];fingerprint:string }
 export interface CompareSession {
+  gitSources?: Record<Side,GitSelection>
+  remoteSources?: Record<Side,RemoteSelection>
   merge?: MergeDraft
   assetSources?: Record<Side, AssetRef | null>
   assetSettings?: AssetSettings
@@ -176,6 +188,7 @@ export interface CompareSession {
   directoryOptions: DirectoryOptions
 }
 export interface Preferences {
+  remoteProfiles?: SshProfile[]
   theme: Theme
   locale: Locale
   fontSize: number
