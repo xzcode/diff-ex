@@ -28,5 +28,10 @@ flate2 = "1"
 sevenz-rust2 = { version = "0.27", default-features = false, features = ["bzip2", "ppmd", "deflate"] }
 same-file = "1"
 
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
+ssh2 = { version = "0.9", features = ["vendored-openssl", "openssl-on-win32"] }
+base64 = "0.22"
+lopdf = { version = "0.47", default-features = false }
+
 [dev-dependencies]
 sevenz-rust2 = { version = "0.27", default-features = false, features = ["compress"] }
