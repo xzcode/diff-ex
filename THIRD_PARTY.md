@@ -28,3 +28,9 @@ Vite, TypeScript, vue-tsc, Vitest and Playwright are development/build/verificat
 
 - zip 9.8.x, tar 0.4.x, flate2 1.x and sevenz-rust2 0.27.x: read archive streams; the exact resolved dependencies are recorded in Cargo.lock. Sevenz compression is enabled only for tests; production does not extract or rewrite archive members. See each crate's license metadata.
 - same-file 1.x: cross-platform file identity checks for three-way result save targets.
+
+## Git, SSH and document comparison
+
+- git2 0.21 (MIT/Apache-2.0), vendored libgit2: read local Git objects and working trees.
+- ssh2 0.9 (MIT/Apache-2.0), libssh2 and vendored OpenSSL: read-only SFTP with pinned server host keys.
+- lopdf 0.47 (MIT): PDF extraction. Optional system antiword and pdftoppm/Poppler executables are not redistributed with the app. Users install those separately. See Cargo.lock for exact dependency versions.

@@ -10,7 +10,7 @@
 
 **Diff EX is an offline desktop comparison and merge tool for Windows, macOS and Linux.** It combines an editable two-pane workspace with an independent Rust comparison engine. No account, server, telemetry or file upload is needed.
 
-> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M7 feature set are implemented, including read-only binary, image, table and archive comparison and three-way text merge. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
+> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M9 feature set are implemented, including Git/SFTP snapshots and document extraction/comparison. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
 
 ## What works
 
@@ -49,6 +49,14 @@ These three workspaces are read-only. Binary comparison does not infer edit alig
 - Archive comparison: ZIP (including JAR/APK/WAR), 7z, TAR, TAR.GZ/TGZ and GZIP. Compare decompressed BLAKE3 content fingerprints and virtual relative paths across container formats without extracting or executing files. Includes filtering, pagination, per-entry detail and cancellation. Encrypted/password-protected archives and unsupported compression methods report errors. A plain GZIP stream is compared as a single virtual payload. Browser preview requires the desktop engine for archive comparison.
 
 Three-way merge is line-based and uses a conservative overlap policy. Directory three-way merge, byte edits, archive member extraction/repacking and password entry are not implemented.
+
+## Git, SFTP and documents
+
+- Git compares branches, tags, commit/tree IDs and local working trees across repositories using libgit2. Version trees are pinned to an object ID; no checkout, hooks, external diff driver, fetch or repository writes are performed. Open a changed text file as a detached copy.
+- SFTP compares local/remote files or directories with content hashes using libssh2. Supports named reusable profiles, password/private-key/agent authentication, mandatory independently verified SHA256 host-key pin, cancellation during scans and detached text inspection. Secrets are transient and never stored in profiles/workspace settings. Links and special entries are not followed. No remote writes or shell commands.
+- DOCX/DOCM reads paragraphs, table cell text, header/footer/notes and package/property structural signatures. PDF reads page text and page geometry/content signatures using lopdf. Extraction warnings are displayed rather than silently classifying unavailable content as equal. Legacy DOC text needs optional local `antiword`; rendered PDF page side-by-side and heatmaps need optional local Poppler `pdftoppm` on PATH. These tools are not included in the installers. Word layout comparison is structural, not a full rendered Word layout engine.
+
+Git/SFTP/document extraction require the desktop app. Detached text copies opened explicitly can be retained by local workspace autosave. Native SSH authentication availability depends on server and agent/key compatibility. These are read-only comparison baselines; Git index-only mode, Git rename alignment, remote writes/sync, Word page rendering, OCR and encrypted document support remain future work.
 
 ## Screenshots
 

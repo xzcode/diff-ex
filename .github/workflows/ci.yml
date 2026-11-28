@@ -18,6 +18,8 @@ jobs:
   verify:
     name: Core, frontend and browser checks
     runs-on: ubuntu-24.04
+    env:
+      OPENSSL_NO_VENDOR: '1'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -28,9 +30,15 @@ jobs:
         with:
           components: rustfmt
       - uses: Swatinem/rust-cache@v2
+      - name: Native fixture prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev openssh-server poppler-utils
       - run: npm ci
       - run: cargo fmt --all -- --check
       - run: cargo test --locked -p diff-ex-core
+      - name: Isolated real SFTP integration
+        run: bash scripts/test-native-sftp.sh
       - run: npm test
       - run: npm run build
       - run: npx playwright install --with-deps chromium
