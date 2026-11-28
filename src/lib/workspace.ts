@@ -1,5 +1,5 @@
 import { isLocale } from './i18n'
-import type { AssetRef, AssetSettings, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
+import type { AssetRef, AssetSettings, MergeDraft, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
 
 export interface SavedSession { id: string; name: string; savedAt: string; session: CompareSession }
 export interface Workspace { version: 1; sessions: CompareSession[]; activeId: string; preferences: Preferences; savedSessions: SavedSession[] }
@@ -29,15 +29,19 @@ function validAssetSettings(value: unknown): boolean {
 }
 export const newDocument = (): TextDocument => ({ path: null, name: 'Untitled', content: '', encoding: 'UTF-8', bom: false, lineEnding: 'lf', fingerprint: null, byteLength: 0 })
 export const metadataSignature = (doc: TextDocument): string => JSON.stringify([doc.encoding.toLowerCase(), doc.bom, doc.lineEnding])
+export function newMergeDraft(): MergeDraft {
+  const output = { ...newDocument(), name: 'merged.txt' }
+  return { base: newDocument(), savedBase: '', output, savedOutput: '', savedOutputMetadata: metadataSignature(output), prepared: false, manual: false, resolutions: {} }
+}
 export function newSession(kind: CompareKind = 'text'): CompareSession {
-  return { id: crypto.randomUUID(), title: '', kind, assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
+  return { id: crypto.randomUUID(), title: '', kind, ...(kind === 'merge' ? { merge: newMergeDraft() } : {}), assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
     textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true, ignoreLinePrefixes: [], ignoreLineRegex: '' },
     structuredOptions: { format: 'json', ignoreArrayOrder: false, ignoreCase: false },
     leftRoot: '', rightRoot: '', directoryOptions: { method: 'content', showHidden: true, respectGitignore: true, excludes: [] } }
 }
 export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 export const isSideDirty = (session: CompareSession, side: Side): boolean => session[side].content !== (side === 'left' ? session.savedLeft : session.savedRight) || metadataSignature(session[side]) !== ((side === 'left' ? session.savedLeftMetadata : session.savedRightMetadata) ?? metadataSignature(session[side]))
-export const isDirty = (session: CompareSession): boolean => isSideDirty(session, 'left') || isSideDirty(session, 'right')
+export const isDirty = (session: CompareSession): boolean => isSideDirty(session, 'left') || isSideDirty(session, 'right') || !!(session.merge && (session.merge.base.content !== session.merge.savedBase || session.merge.output.content !== session.merge.savedOutput || metadataSignature(session.merge.output) !== session.merge.savedOutputMetadata))
 function validDocument(v: unknown): v is TextDocument {
   if (!v || typeof v !== 'object') return false
   const x = v as TextDocument
@@ -45,10 +49,19 @@ function validDocument(v: unknown): v is TextDocument {
     typeof x.bom === 'boolean' && (x.path === null || typeof x.path === 'string') &&
     (x.fingerprint === null || typeof x.fingerprint === 'string') && ['lf', 'crlf', 'cr', 'mixed', 'none'].includes(x.lineEnding) && typeof x.byteLength === 'number'
 }
+function validMerge(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const m = value as MergeDraft
+  return validDocument(m.base) && validDocument(m.output) && typeof m.savedBase === 'string' && typeof m.savedOutput === 'string' &&
+    typeof m.savedOutputMetadata === 'string' && typeof m.prepared === 'boolean' && typeof m.manual === 'boolean' &&
+    !!m.resolutions && typeof m.resolutions === 'object' && !Array.isArray(m.resolutions) &&
+    Object.entries(m.resolutions).every(([k,v]) => /^edit:\d+:\d+$/.test(k) && !!v && ['base','left','right','manual'].includes(v.choice) && typeof v.text === 'string')
+}
 function validSession(v: unknown): v is CompareSession {
   if (!v || typeof v !== 'object') return false
   const s = v as CompareSession
-  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table'].includes(s.kind) &&
+  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table','merge','archive'].includes(s.kind) &&
+    (s.kind !== 'merge' ? s.merge === undefined : validMerge(s.merge)) &&
     (s.assetSources === undefined || (!!s.assetSources && validAsset(s.assetSources.left) && validAsset(s.assetSources.right))) &&
     (s.assetSettings === undefined || validAssetSettings(s.assetSettings)) &&
     validDocument(s.left) && validDocument(s.right) && typeof s.savedLeft === 'string' && typeof s.savedRight === 'string' &&

@@ -1,5 +1,5 @@
 export type Side = 'left' | 'right'
-export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table'
+export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table' | 'merge' | 'archive'
 export type Theme = 'dark' | 'black' | 'gray' | 'white' | 'light'
 export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt-BR' | 'ru' | 'ms' | 'id'
 export type Locale = 'system' | Language
@@ -140,7 +140,24 @@ export interface BinaryStats {
 }
 export interface TableCell { value: string; kind: string }
 export interface TableSheet { rowStart: number; colStart: number; rows: (TableCell | null)[][] }
+export type MergeChoice = 'base' | 'left' | 'right' | 'manual'
+export interface MergeResolution { choice: MergeChoice; text: string }
+export interface MergeSegment { id: string; start: number; end: number; kind: 'same' | 'left' | 'right' | 'both' | 'conflict'; base: string; left: string; right: string; text: string }
+export interface MergeDraft {
+  base: TextDocument
+  savedBase: string
+  output: TextDocument
+  savedOutput: string
+  savedOutputMetadata: string
+  prepared: boolean
+  manual: boolean
+  resolutions: Record<string, MergeResolution>
+}
+export interface ArchiveItem { path: string; kind: 'file' | 'directory' | 'link' | 'special'; size: number; fingerprint: string | null; error: string | null }
+export interface ArchiveEntry { path: string; status: 'same' | 'different' | 'leftOnly' | 'rightOnly' | 'conflict' | 'error'; left: ArchiveItem | null; right: ArchiveItem | null }
+export interface ArchiveResult { entries: ArchiveEntry[]; leftFormat: string; rightFormat: string }
 export interface CompareSession {
+  merge?: MergeDraft
   assetSources?: Record<Side, AssetRef | null>
   assetSettings?: AssetSettings
   id: string
