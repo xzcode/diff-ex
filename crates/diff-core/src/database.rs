@@ -425,3 +425,30 @@ mod tests {
         assert_eq!(quote("a`b", '`').unwrap(), "`a``b`");
     }
 }
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+    #[test]
+    fn isolated_database_fixture() {
+        let Ok(engine)=std::env::var("DIFF_EX_DB_ENGINE") else { return };
+        let profile=|database:&str| DbProfile{
+            engine:engine.clone(),host:"127.0.0.1".into(),port:std::env::var("DIFF_EX_DB_PORT").unwrap().parse().unwrap(),
+            username:std::env::var("DIFF_EX_DB_USER").unwrap(),database:database.into(),tls:false,
+            auth_database:"admin".into(),..DbProfile::default()
+        };
+        let request=|database:&str| DbRequest{profile:profile(database),secret:Some(std::env::var("DIFF_EX_DB_PASSWORD").unwrap()),relation:"items".into()};
+        let left=request("diff_left");let right=request("diff_right");
+        assert!(catalog(&left).unwrap().contains(&"items".into()));
+        let result=compare(left.clone(),right.clone(),DbOptions::default(),&AtomicBool::new(false)).unwrap();
+        assert_eq!(result.left_rows,3);assert_eq!(result.right_rows,3);assert_eq!(result.equal_rows,1);
+        assert_eq!(result.rows.len(),3);
+        assert!(result.rows.iter().any(|row|row.status=="different"&&row.columns==vec!["note"]));
+        assert!(result.rows.iter().any(|row|row.status=="leftOnly"));
+        assert!(result.rows.iter().any(|row|row.status=="rightOnly"));
+        assert!(result.schema.iter().any(|row|row.kind=="index"&&row.name=="by_note"&&row.status=="leftOnly"));
+        let mut opts=DbOptions::default();opts.ignore_columns=vec!["note".into()];
+        let result=compare(left,right,opts,&AtomicBool::new(false)).unwrap();
+        assert_eq!(result.equal_rows,2);assert_eq!(result.rows.len(),2);
+    }
+}

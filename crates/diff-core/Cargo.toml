@@ -40,5 +40,7 @@ postgres-native-tls = "0.5"
 native-tls = { version = "0.2", features = ["vendored"] }
 mongodb = { version = "3.10", default-features = false, features = ["compat-3-0-0", "rustls-tls", "sync"] }
 
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
 [dev-dependencies]
 sevenz-rust2 = { version = "0.27", default-features = false, features = ["compress"] }

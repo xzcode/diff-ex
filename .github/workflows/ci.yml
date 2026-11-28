@@ -38,6 +38,15 @@ jobs:
       - run: npm ci
       - run: cargo fmt --all -- --check
       - run: cargo test --locked -p diff-ex-core
+      - name: Build and verify standalone CLI
+        run: |
+          cargo build --locked -p diff-ex-cli
+          bash scripts/test-cli.sh
+      - name: Isolated real database integration
+        run: |
+          for engine in mysql mariadb postgres mongodb; do
+            bash scripts/test-native-databases.sh "$engine"
+          done
       - name: Isolated real SFTP integration
         run: bash scripts/test-native-sftp.sh
       - run: npm test
