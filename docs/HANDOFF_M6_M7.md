@@ -11,9 +11,9 @@ Base: c27c8fbbb008f05d9fc1a13281af7e9eb2132586. M4/M5 passed its full CI before 
 
 ## M7
 - Native ZIP/JAR/APK/WAR, 7Z, TAR, TAR.GZ/TGZ and GZIP reader, read-only streaming BLAKE3 of uncompressed file bytes, inferred parent directories, relative path matching, exact size and hash.
-- Plain gzip stream compares under virtual name payload. Links/special items are not followed and marked as errors; unsafe and duplicate normalized paths and parent conflicts are rejected when exposed by the parser. Encrypted archives and unsupported compression fail rather than falsely report equality.
+- Plain gzip stream compares under virtual name payload. Links/special items are not followed and marked as errors; unsafe and duplicate normalized paths and parent conflicts are rejected; ZIP central-directory duplicates are detected before indexing. Encrypted archives and unsupported compression fail rather than falsely report equality.
 - Compare across formats, cancel at entry/read boundaries, filter by status or path, paginated listing, hashes/details. No extraction, no command execution, no rewrite. Password entry, archive member open/preview and archive write-back are not yet implemented. Archive decompression depends on codec memory requirements, result index is in memory.
 - Browser preview explicitly disables native archive operations.
 
 ## Verification
-Seoul isolated temp workspace: 38 Rust tests passed including real ZIP/TAR, gzip and 7z, source-alias protection, and the previous M1–M5 tests. The dependency lock and formatted source are committed. GitHub Actions is the authoritative source for full frontend, browser and installer status. UI catalogs contain 382 keys in twelve languages. English README remains default.
+Seoul isolated temp workspace: 39 Rust tests passed including real ZIP/TAR, gzip and 7z, source-alias protection, and the previous M1–M5 tests. The dependency lock and formatted source are committed. GitHub Actions is the authoritative source for full frontend, browser and installer status. UI catalogs contain 382 keys in twelve languages. English README remains default.

@@ -156,6 +156,9 @@ fn file_item(
 }
 fn read_zip(reader: impl Read + io::Seek, flag: &AtomicBool) -> Result<Index, String> {
     let mut archive = zip::ZipArchive::new(reader).map_err(|e| e.to_string())?;
+    if archive.has_duplicate_names() {
+        return Err("Duplicate file names in ZIP central directory.".into());
+    }
     let mut index = Index::default();
     for i in 0..archive.len() {
         cancelled(flag)?;
@@ -398,6 +401,29 @@ mod tests {
         assert_eq!(result.left_format, "7Z");
         assert_eq!(result.entries[1].path, "folder/item");
         assert_eq!(result.entries[1].status, "different");
+    }
+    #[test]
+    fn zip_duplicate_names_are_rejected_before_indexing() {
+        use std::io::Cursor;
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        for name in ["one.txt", "two.txt"] {
+            writer
+                .start_file(name, SimpleFileOptions::default())
+                .unwrap();
+            writer.write_all(b"data").unwrap();
+        }
+        let mut bytes = writer.finish().unwrap().into_inner();
+        let offsets: Vec<usize> = bytes
+            .windows(7)
+            .enumerate()
+            .filter_map(|(i, bytes)| (bytes == b"two.txt").then_some(i))
+            .collect();
+        assert_eq!(offsets.len(), 2);
+        for offset in offsets {
+            bytes[offset..offset + 7].copy_from_slice(b"one.txt");
+        }
+        let result = read_zip(Cursor::new(bytes), &AtomicBool::new(false));
+        assert!(result.is_err());
     }
     #[test]
     fn gzip_payload_hash_and_cancellation() {
