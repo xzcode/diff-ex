@@ -66,7 +66,7 @@ impl Reader {
         })
     }
 }
-fn document_definition(doc: Document) -> Result<String,String> {
+fn document_definition(doc: Document) -> Result<String, String> {
     // Preserve index field ordering and BSON types in the serialized value.
     let bytes = hex(&bson::to_vec(&doc).map_err(err)?);
     Ok(format!(

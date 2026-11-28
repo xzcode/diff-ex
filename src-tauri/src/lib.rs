@@ -1,6 +1,6 @@
 use diff_ex_core::{
-    archives, assets, batch, database, directories, documents, files, git_compare, remote, structured, sync, text,
-    workbooks,
+    archives, assets, batch, database, directories, documents, files, git_compare, remote,
+    structured, sync, text, workbooks,
 };
 use std::{
     collections::HashMap,
@@ -37,20 +37,41 @@ impl AppState {
 }
 
 #[tauri::command]
-async fn run_batch_task(state:State<'_,AppState>,task:batch::BatchTask,job_id:String)->Result<batch::TaskResult,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||batch::run_task(&task,&flag)).await.map_err(|e|e.to_string());
-    state.finish(&job_id);result
+async fn run_batch_task(
+    state: State<'_, AppState>,
+    task: batch::BatchTask,
+    job_id: String,
+) -> Result<batch::TaskResult, String> {
+    let flag = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || batch::run_task(&task, &flag))
+        .await
+        .map_err(|e| e.to_string());
+    state.finish(&job_id);
+    result
 }
 #[tauri::command]
-async fn database_catalog(request:database::DbRequest)->Result<Vec<String>,String>{
-    tauri::async_runtime::spawn_blocking(move||database::catalog(&request)).await.map_err(|e|e.to_string())?
+async fn database_catalog(request: database::DbRequest) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || database::catalog(&request))
+        .await
+        .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn compare_database(state:State<'_,AppState>,left:database::DbRequest,right:database::DbRequest,options:database::DbOptions,job_id:String)->Result<database::DbResult,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||database::compare(left,right,options,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
-    state.finish(&job_id);result
+async fn compare_database(
+    state: State<'_, AppState>,
+    left: database::DbRequest,
+    right: database::DbRequest,
+    options: database::DbOptions,
+    job_id: String,
+) -> Result<database::DbResult, String> {
+    let flag = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        database::compare(left, right, options, &flag)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r);
+    state.finish(&job_id);
+    result
 }
 #[tauri::command]
 async fn git_refs(repository: String) -> Result<Vec<String>, String> {

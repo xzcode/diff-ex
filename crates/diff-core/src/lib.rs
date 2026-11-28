@@ -1,6 +1,7 @@
 //! Pure Rust comparison and local filesystem operations. No UI/runtime dependencies.
 pub mod archives;
 pub mod assets;
+pub mod batch;
 pub mod database;
 pub mod directories;
 pub mod documents;
@@ -12,4 +13,3 @@ pub mod structured;
 pub mod sync;
 pub mod text;
 pub mod workbooks;
-pub mod batch;

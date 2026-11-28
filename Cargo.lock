@@ -988,6 +988,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "diff-ex-cli"
+version = "0.1.0"
+dependencies = [
+ "diff-ex-core",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "diff-ex-core"
 version = "0.1.0"
 dependencies = [
@@ -1017,6 +1026,7 @@ dependencies = [
  "ssh2",
  "tar",
  "tempfile",
+ "tokio",
  "uuid",
  "yaml-rust2",
  "zip",
