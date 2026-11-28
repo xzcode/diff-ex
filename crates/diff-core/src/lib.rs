@@ -11,3 +11,4 @@ pub mod structured;
 pub mod sync;
 pub mod text;
 pub mod workbooks;
+pub mod database;

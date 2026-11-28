@@ -33,5 +33,12 @@ ssh2 = { version = "0.9", features = ["vendored-openssl", "openssl-on-win32"] }
 base64 = "0.22"
 lopdf = { version = "0.47", default-features = false }
 
+rusqlite = { version = "0.43", default-features = false, features = ["bundled"] }
+mysql = { version = "28", default-features = false, features = ["minimal-rust", "native-tls"] }
+postgres = "0.19"
+postgres-native-tls = "0.5"
+native-tls = { version = "0.2", features = ["vendored"] }
+mongodb = { version = "3.10", default-features = false, features = ["compat-3-0-0", "rustls-tls", "sync"] }
+
 [dev-dependencies]
 sevenz-rust2 = { version = "0.27", default-features = false, features = ["compress"] }
