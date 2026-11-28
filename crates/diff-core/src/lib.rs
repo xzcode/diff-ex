@@ -10,3 +10,4 @@ pub mod workbooks;
 pub mod git_compare;
 pub mod snapshots;
 pub mod remote;
+pub mod documents;
