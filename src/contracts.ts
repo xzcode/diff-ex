@@ -1,5 +1,5 @@
 export type Side = 'left' | 'right'
-export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table' | 'merge' | 'archive' | 'git' | 'remote' | 'document'
+export type CompareKind = 'text' | 'folder' | 'structured' | 'binary' | 'image' | 'table' | 'merge' | 'archive' | 'git' | 'remote' | 'document' | 'database' | 'batch'
 export type Theme = 'dark' | 'black' | 'gray' | 'white' | 'light'
 export type Language = 'en' | 'zh-CN' | 'zh-TW' | 'ja' | 'ko' | 'de' | 'fr' | 'es' | 'pt-BR' | 'ru' | 'ms' | 'id'
 export type Locale = 'system' | Language
@@ -166,7 +166,20 @@ export interface RemoteRequest { source:RemoteSelection;secret:string|null }
 export interface RemoteResult { left:RemoteSelection;right:RemoteSelection;entries:SnapshotEntry[] }
 export interface DocUnit { label:string;text:string;layout:string;layoutFingerprint:string|null;warning:string|null;page:number|null }
 export interface DocumentData { format:string;units:DocUnit[];notes:string[];fingerprint:string }
+export type DbEngine='sqlite'|'mysql'|'postgres'|'mongodb'
+export interface DbProfile {name:string;engine:DbEngine;host:string;port:number;username:string;database:string;schema:string;path:string;tls:boolean;caPath:string;authDatabase:string}
+export interface DbSource {profile:DbProfile;relation:string}
+export interface DbOptions {mode:'schema'|'data'|'both';keys:string[];ignoreColumns:string[]}
+export interface DbValue {kind:string;value:string;raw?:string}
+export type DbRow=Record<string,DbValue>
+export interface DbDifference {kind:string;name:string;status:'same'|'different'|'leftOnly'|'rightOnly';left:string|null;right:string|null}
+export interface DbRowDifference {key:string;status:'different'|'leftOnly'|'rightOnly';columns:string[];left:DbRow|null;right:DbRow|null}
+export interface DbResult {schema:DbDifference[];rows:DbRowDifference[];leftRows:number;rightRows:number;equalRows:number;keys:string[];dataCompared:boolean}
+export interface BatchItem {id:string;kind:'text'|'structured'|'binary'|'folder'|'archive'|'document';left:string;right:string;format?:'json'|'yaml'|'xml'}
 export interface CompareSession {
+  dbSources?: Record<Side,DbSource>
+  dbOptions?:DbOptions
+  batchItems?:BatchItem[]
   gitSources?: Record<Side,GitSelection>
   remoteSources?: Record<Side,RemoteSelection>
   merge?: MergeDraft
@@ -188,6 +201,7 @@ export interface CompareSession {
   directoryOptions: DirectoryOptions
 }
 export interface Preferences {
+  dbProfiles?:DbProfile[]
   remoteProfiles?: SshProfile[]
   theme: Theme
   locale: Locale

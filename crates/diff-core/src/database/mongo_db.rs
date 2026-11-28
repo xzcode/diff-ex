@@ -66,14 +66,14 @@ impl Reader {
         })
     }
 }
-fn document_definition(doc: Document) -> String {
+fn document_definition(doc: Document) -> Result<String,String> {
     // Preserve index field ordering and BSON types in the serialized value.
-    let bytes = bson::to_vec(&doc).map(|v| hex(&v)).unwrap_or_default();
-    format!(
+    let bytes = hex(&bson::to_vec(&doc).map_err(err)?);
+    Ok(format!(
         "{}\nBSON: {}",
         Bson::Document(doc).into_canonical_extjson(),
         bytes
-    )
+    ))
 }
 impl DbReader for Reader {
     fn schema(&mut self, relation: &str) -> Result<DbSchema, String> {
@@ -98,7 +98,7 @@ impl DbReader for Reader {
             objects.push(DbObject {
                 kind: "collection".into(),
                 name: "OPTIONS".into(),
-                definition: document_definition(options),
+                definition: document_definition(options)?,
             });
         }
         if !found {
@@ -118,7 +118,7 @@ impl DbReader for Reader {
             objects.push(DbObject {
                 kind: "index".into(),
                 name,
-                definition: document_definition(definition),
+                definition: document_definition(definition)?,
             });
         }
         Ok(DbSchema {

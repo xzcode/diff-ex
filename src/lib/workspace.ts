@@ -1,5 +1,5 @@
 import { isLocale } from './i18n'
-import type { AssetRef, AssetSettings, MergeDraft, GitSelection, RemoteSelection, SshProfile, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
+import type { AssetRef, AssetSettings, DbProfile, DbSource, DbOptions, DbEngine, BatchItem, MergeDraft, GitSelection, RemoteSelection, SshProfile, CompareKind, CompareSession, Preferences, Side, TextDocument } from '../contracts'
 
 export interface SavedSession { id: string; name: string; savedAt: string; session: CompareSession }
 export interface Workspace { version: 1; sessions: CompareSession[]; activeId: string; preferences: Preferences; savedSessions: SavedSession[] }
@@ -22,6 +22,26 @@ function validRemoteSource(v:unknown):v is RemoteSelection{
   if(!v||typeof v!=='object')return false
   const s=v as RemoteSelection
   return ['local','sftp'].includes(s.kind)&&typeof s.path==='string'&&validSshProfile(s.profile)
+}
+export const defaultDbProfile=(engine:DbEngine='sqlite'):DbProfile=>({name:'',engine,host:'127.0.0.1',port:({sqlite:1,mysql:3306,postgres:5432,mongodb:27017})[engine],username:'',database:'',schema:'public',path:'',tls:true,caPath:'',authDatabase:'admin'})
+export const defaultDbSource=():DbSource=>({profile:defaultDbProfile(),relation:''})
+export const defaultDbOptions=():DbOptions=>({mode:'both',keys:[],ignoreColumns:[]})
+function validDbProfile(v:unknown):v is DbProfile{
+  if(!v||typeof v!=='object')return false
+  const p=v as DbProfile
+  return ['sqlite','mysql','postgres','mongodb'].includes(p.engine)&&['name','host','username','database','schema','path','caPath','authDatabase'].every(k=>typeof (p as unknown as Record<string,unknown>)[k]==='string')&&Number.isInteger(p.port)&&p.port>=1&&p.port<=65535&&typeof p.tls==='boolean'
+}
+function validDbSource(v:unknown):v is DbSource{
+  if(!v||typeof v!=='object')return false
+  const s=v as DbSource;return validDbProfile(s.profile)&&typeof s.relation==='string'
+}
+function validDbOptions(v:unknown):v is DbOptions{
+  if(!v||typeof v!=='object')return false
+  const o=v as DbOptions;return ['schema','data','both'].includes(o.mode)&&[o.keys,o.ignoreColumns].every(a=>Array.isArray(a)&&a.every(x=>typeof x==='string'))
+}
+function validBatchItem(v:unknown):v is BatchItem{
+  if(!v||typeof v!=='object')return false
+  const x=v as BatchItem;return typeof x.id==='string'&&['text','structured','binary','folder','archive','document'].includes(x.kind)&&typeof x.left==='string'&&typeof x.right==='string'&&(x.format===undefined||['json','yaml','xml'].includes(x.format))
 }
 export const defaultAssetSettings = (): AssetSettings => ({
   binaryOffset: 0, binaryPageSize: 512, imageMode: 'side', imageTolerance: 0, imageMix: 50,
@@ -53,7 +73,7 @@ export function newMergeDraft(): MergeDraft {
   return { base: newDocument(), savedBase: '', output, savedOutput: '', savedOutputMetadata: metadataSignature(output), prepared: false, manual: false, resolutions: {} }
 }
 export function newSession(kind: CompareKind = 'text'): CompareSession {
-  return { id: crypto.randomUUID(), title: '', kind, ...(kind === 'merge' ? { merge: newMergeDraft() } : {}), ...(kind === 'git' ? {gitSources:{left:defaultGitSource(),right:defaultGitSource('WORKTREE')}} : {}), ...(kind === 'remote' ? {remoteSources:{left:defaultRemoteSource('local'),right:defaultRemoteSource()}} : {}), assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
+  return { id: crypto.randomUUID(), title: '', kind, ...(kind==='database'?{dbSources:{left:defaultDbSource(),right:defaultDbSource()},dbOptions:defaultDbOptions()}:{}), ...(kind==='batch'?{batchItems:[]}:{}), ...(kind === 'merge' ? { merge: newMergeDraft() } : {}), ...(kind === 'git' ? {gitSources:{left:defaultGitSource(),right:defaultGitSource('WORKTREE')}} : {}), ...(kind === 'remote' ? {remoteSources:{left:defaultRemoteSource('local'),right:defaultRemoteSource()}} : {}), assetSources: { left: null, right: null }, assetSettings: defaultAssetSettings(), left: newDocument(), right: newDocument(), savedLeft: '', savedRight: '', savedLeftMetadata: metadataSignature(newDocument()), savedRightMetadata: metadataSignature(newDocument()),
     textOptions: { algorithm: 'myers', ignoreCase: false, whitespace: 'none', ignoreBlankLines: false, ignoreLineEndings: true, ignoreLinePrefixes: [], ignoreLineRegex: '' },
     structuredOptions: { format: 'json', ignoreArrayOrder: false, ignoreCase: false },
     leftRoot: '', rightRoot: '', directoryOptions: { method: 'content', showHidden: true, respectGitignore: true, excludes: [] } }
@@ -79,7 +99,9 @@ function validMerge(value: unknown): boolean {
 function validSession(v: unknown): v is CompareSession {
   if (!v || typeof v !== 'object') return false
   const s = v as CompareSession
-  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table','merge','archive','git','remote','document'].includes(s.kind) &&
+  return typeof s.id === 'string' && typeof s.title === 'string' && ['text', 'folder', 'structured', 'binary', 'image', 'table','merge','archive','git','remote','document','database','batch'].includes(s.kind) &&
+    (s.kind!=='database'||(!!s.dbSources&&validDbSource(s.dbSources.left)&&validDbSource(s.dbSources.right)&&validDbOptions(s.dbOptions))) &&
+    (s.kind!=='batch'||(Array.isArray(s.batchItems)&&s.batchItems.every(validBatchItem)&&new Set(s.batchItems.map(v=>v.id)).size===s.batchItems.length)) &&
     (s.kind !== 'git' || (!!s.gitSources && validGitSource(s.gitSources.left) && validGitSource(s.gitSources.right))) &&
     (s.kind !== 'remote' || (!!s.remoteSources && validRemoteSource(s.remoteSources.left) && validRemoteSource(s.remoteSources.right))) &&
     (s.kind !== 'merge' ? s.merge === undefined : validMerge(s.merge)) &&
@@ -104,7 +126,7 @@ export function decodeWorkspace(text: string): Workspace {
     throw new Error('The workspace has an unsupported version or malformed session data.')
   }
   const p = w.preferences
-  if (!p || (p.remoteProfiles!==undefined && (!Array.isArray(p.remoteProfiles)||!p.remoteProfiles.every(validSshProfile)||new Set(p.remoteProfiles.map(v=>v.name)).size!==p.remoteProfiles.length)) || !['dark', 'black', 'gray', 'white', 'light'].includes(p.theme) || !isLocale(p.locale) ||
+  if (!p || (p.dbProfiles!==undefined&&(!Array.isArray(p.dbProfiles)||!p.dbProfiles.every(validDbProfile)||new Set(p.dbProfiles.map(v=>v.name)).size!==p.dbProfiles.length)) || (p.remoteProfiles!==undefined && (!Array.isArray(p.remoteProfiles)||!p.remoteProfiles.every(validSshProfile)||new Set(p.remoteProfiles.map(v=>v.name)).size!==p.remoteProfiles.length)) || !['dark', 'black', 'gray', 'white', 'light'].includes(p.theme) || !isLocale(p.locale) ||
     !Number.isFinite(p.fontSize) || p.fontSize < 8 || p.fontSize > 40 || typeof p.wordWrap !== 'boolean' || typeof p.showSidebar !== 'boolean') throw new Error('Invalid workspace preferences')
   if (new Set(w.sessions.map(s => s.id)).size !== w.sessions.length) throw new Error('Duplicate session identifiers')
   w.activeId = w.sessions.some(s => s.id === w.activeId) ? w.activeId : w.sessions[0]?.id || ''

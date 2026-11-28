@@ -1,5 +1,5 @@
 use diff_ex_core::{
-    archives, assets, directories, documents, files, git_compare, remote, structured, sync, text,
+    archives, assets, database, directories, documents, files, git_compare, remote, structured, sync, text,
     workbooks,
 };
 use std::{
@@ -36,6 +36,16 @@ impl AppState {
     }
 }
 
+#[tauri::command]
+async fn database_catalog(request:database::DbRequest)->Result<Vec<String>,String>{
+    tauri::async_runtime::spawn_blocking(move||database::catalog(&request)).await.map_err(|e|e.to_string())?
+}
+#[tauri::command]
+async fn compare_database(state:State<'_,AppState>,left:database::DbRequest,right:database::DbRequest,options:database::DbOptions,job_id:String)->Result<database::DbResult,String>{
+    let flag=state.start(&job_id)?;
+    let result=tauri::async_runtime::spawn_blocking(move||database::compare(left,right,options,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
+    state.finish(&job_id);result
+}
 #[tauri::command]
 async fn git_refs(repository: String) -> Result<Vec<String>, String> {
     tauri::async_runtime::spawn_blocking(move || git_compare::refs(&repository))
@@ -423,6 +433,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
+            database_catalog,
+            compare_database,
             git_refs,
             compare_git,
             read_git,

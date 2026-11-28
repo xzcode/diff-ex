@@ -19,7 +19,7 @@ impl Reader {
 }
 pub fn catalog(r: &DbRequest) -> Result<Vec<String>, String> {
     let reader = Reader::open(r)?;
-    let mut stmt=reader.conn.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql NOT LIKE 'CREATE VIRTUAL TABLE%' ORDER BY name").map_err(err)?;
+    let mut stmt=reader.conn.prepare("SELECT name FROM pragma_table_list WHERE schema='main' AND type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name").map_err(err)?;
     let rows = stmt
         .query_map([], |r| r.get(0))
         .map_err(err)?
@@ -32,7 +32,7 @@ impl DbReader for Reader {
         let definition: String = self
             .conn
             .query_row(
-                "SELECT sql FROM sqlite_schema WHERE type='table' AND name=?1",
+                "SELECT sql FROM sqlite_schema WHERE type='table' AND name=?1 AND name IN (SELECT name FROM pragma_table_list WHERE schema='main' AND type='table' AND name NOT GLOB 'sqlite_*')",
                 [relation],
                 |r| r.get(0),
             )
