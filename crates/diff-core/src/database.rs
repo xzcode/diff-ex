@@ -35,7 +35,7 @@ pub struct DbObject{pub kind:String,pub name:String,pub definition:String}
 pub struct DbSchema{pub columns:Vec<DbColumn>,pub primary_key:Vec<String>,pub objects:Vec<DbObject>}
 #[derive(Debug,Clone,PartialEq,Eq,Serialize,Deserialize)]
 #[serde(rename_all="camelCase")]
-pub struct DbValue{pub kind:String,pub value:String}
+pub struct DbValue{pub kind:String,pub value:String,#[serde(default,skip_serializing_if="Option::is_none")]pub raw:Option<String>}
 pub type Row=BTreeMap<String,DbValue>;
 pub type Rows=BTreeMap<String,Row>;
 #[derive(Debug,Clone,Serialize,Deserialize)]
@@ -52,7 +52,7 @@ pub struct DbRowDifference{pub key:String,pub status:String,pub columns:Vec<Stri
 #[serde(rename_all="camelCase")]
 pub struct DbResult{pub schema:Vec<DbDifference>,pub rows:Vec<DbRowDifference>,pub left_rows:u64,pub right_rows:u64,pub equal_rows:u64,pub keys:Vec<String>,pub data_compared:bool}
 pub(crate) fn err(e:impl std::fmt::Display)->String{e.to_string()}
-pub(crate) fn value(kind:&str,value:impl Into<String>)->DbValue{DbValue{kind:kind.into(),value:value.into()}}
+pub(crate) fn value(kind:&str,value:impl Into<String>)->DbValue{DbValue{kind:kind.into(),value:value.into(),raw:None}}
 pub(crate) fn hex(bytes:&[u8])->String{
     const HEX:&[u8]=b"0123456789abcdef";
     let mut out=String::with_capacity(bytes.len().saturating_mul(2));
@@ -168,7 +168,6 @@ pub fn compare(left:DbRequest,right:DbRequest,options:DbOptions,flag:&AtomicBool
     let (rows,equal_rows)=compare_rows(ra,rb,flag)?;
     Ok(DbResult{schema,rows,left_rows,right_rows,equal_rows,keys,data_compared:true})
 }
-pub(crate) fn canonical_json(value:&Json)->String{serde_json::to_string(value).unwrap_or_default()}
 
 #[cfg(test)]
 mod tests{
