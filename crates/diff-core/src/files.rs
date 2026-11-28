@@ -192,9 +192,22 @@ pub fn detect_line_ending(content: &str) -> LineEnding {
 }
 
 /// Decode detached version or remote bytes without giving the editor a writable source path.
-pub(crate) fn decode_snapshot(bytes:&[u8], name:String, selected:Option<&str>)->Result<TextDocument,String>{
-    let (content,encoding,bom)=decode(bytes,selected)?;
-    Ok(TextDocument {path:None,name,line_ending:detect_line_ending(&content),content,encoding:encoding.name().into(),bom,fingerprint:None,byte_length:bytes.len() as u64})
+pub(crate) fn decode_snapshot(
+    bytes: &[u8],
+    name: String,
+    selected: Option<&str>,
+) -> Result<TextDocument, String> {
+    let (content, encoding, bom) = decode(bytes, selected)?;
+    Ok(TextDocument {
+        path: None,
+        name,
+        line_ending: detect_line_ending(&content),
+        content,
+        encoding: encoding.name().into(),
+        bom,
+        fingerprint: None,
+        byte_length: bytes.len() as u64,
+    })
 }
 
 pub fn read_text(path: &str, encoding: Option<&str>) -> Result<TextDocument, String> {

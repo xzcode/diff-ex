@@ -1,4 +1,7 @@
-use diff_ex_core::{archives, assets, directories, documents, files, git_compare, remote, structured, sync, text, workbooks};
+use diff_ex_core::{
+    archives, assets, directories, documents, files, git_compare, remote, structured, sync, text,
+    workbooks,
+};
 use std::{
     collections::HashMap,
     fs,
@@ -35,43 +38,104 @@ impl AppState {
 
 #[tauri::command]
 async fn git_refs(repository: String) -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || git_compare::refs(&repository)).await.map_err(|e|e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || git_compare::refs(&repository))
+        .await
+        .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn compare_git(state:State<'_,AppState>,left:git_compare::GitSelection,right:git_compare::GitSelection,job_id:String)->Result<git_compare::GitResult,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||git_compare::compare(left,right,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
-    state.finish(&job_id);result
+async fn compare_git(
+    state: State<'_, AppState>,
+    left: git_compare::GitSelection,
+    right: git_compare::GitSelection,
+    job_id: String,
+) -> Result<git_compare::GitResult, String> {
+    let flag = state.start(&job_id)?;
+    let result =
+        tauri::async_runtime::spawn_blocking(move || git_compare::compare(left, right, &flag))
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r);
+    state.finish(&job_id);
+    result
 }
 #[tauri::command]
-async fn read_git(selection:git_compare::GitSelection,path:String,fingerprint:String,encoding:Option<String>)->Result<files::TextDocument,String>{
-    tauri::async_runtime::spawn_blocking(move||git_compare::read(selection,&path,&fingerprint,encoding.as_deref())).await.map_err(|e|e.to_string())?
+async fn read_git(
+    selection: git_compare::GitSelection,
+    path: String,
+    fingerprint: String,
+    encoding: Option<String>,
+) -> Result<files::TextDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        git_compare::read(selection, &path, &fingerprint, encoding.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn probe_ssh(profile:remote::SshProfile)->Result<String,String>{
-    tauri::async_runtime::spawn_blocking(move||remote::probe(&profile)).await.map_err(|e|e.to_string())?
+async fn probe_ssh(profile: remote::SshProfile) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || remote::probe(&profile))
+        .await
+        .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn compare_remote(state:State<'_,AppState>,left:remote::RemoteRequest,right:remote::RemoteRequest,job_id:String)->Result<remote::RemoteResult,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||remote::compare(left,right,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
-    state.finish(&job_id);result
+async fn compare_remote(
+    state: State<'_, AppState>,
+    left: remote::RemoteRequest,
+    right: remote::RemoteRequest,
+    job_id: String,
+) -> Result<remote::RemoteResult, String> {
+    let flag = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || remote::compare(left, right, &flag))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r);
+    state.finish(&job_id);
+    result
 }
 #[tauri::command]
-async fn read_remote(request:remote::RemoteRequest,path:String,fingerprint:String,encoding:Option<String>)->Result<files::TextDocument,String>{
-    tauri::async_runtime::spawn_blocking(move||remote::read(request,&path,&fingerprint,encoding.as_deref())).await.map_err(|e|e.to_string())?
+async fn read_remote(
+    request: remote::RemoteRequest,
+    path: String,
+    fingerprint: String,
+    encoding: Option<String>,
+) -> Result<files::TextDocument, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        remote::read(request, &path, &fingerprint, encoding.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 #[tauri::command]
-async fn read_document(state:State<'_,AppState>,asset:assets::AssetRef,job_id:String)->Result<documents::DocumentData,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||documents::load(&asset,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
-    state.finish(&job_id);result
+async fn read_document(
+    state: State<'_, AppState>,
+    asset: assets::AssetRef,
+    job_id: String,
+) -> Result<documents::DocumentData, String> {
+    let flag = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || documents::load(&asset, &flag))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r);
+    state.finish(&job_id);
+    result
 }
 #[tauri::command]
-async fn render_pdf_page(state:State<'_,AppState>,asset:assets::AssetRef,page:u32,dpi:u32,job_id:String)->Result<tauri::ipc::Response,String>{
-    let flag=state.start(&job_id)?;
-    let result=tauri::async_runtime::spawn_blocking(move||documents::render_pdf(&asset,page,dpi,&flag)).await.map_err(|e|e.to_string()).and_then(|r|r);
-    state.finish(&job_id);Ok(tauri::ipc::Response::new(result?))
+async fn render_pdf_page(
+    state: State<'_, AppState>,
+    asset: assets::AssetRef,
+    page: u32,
+    dpi: u32,
+    job_id: String,
+) -> Result<tauri::ipc::Response, String> {
+    let flag = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        documents::render_pdf(&asset, page, dpi, &flag)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r);
+    state.finish(&job_id);
+    Ok(tauri::ipc::Response::new(result?))
 }
 #[tauri::command]
 async fn compare_archive_assets(
