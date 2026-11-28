@@ -385,6 +385,60 @@ try {
   await activeView().locator('.asset-source-name').filter({hasText:'Open this file again to restore the comparison.'}).first().waitFor()
   checks.push('Browser asset session restoration requires explicit file reselection rather than fake file contents.')
 
+
+  // Three-way merge uses the real workspace inputs and resolution controls.
+  await page.locator('.sidebar').getByRole('button',{name:'Three-way merge',exact:true}).click()
+  await activeView().locator('.merge-workspace').waitFor()
+  const baseSource='header\nvalue\nmid\nend\n'
+  const leftSource='header\nL\nmid\nend\n'
+  const rightSource='header\nR\nmid\nEND\n'
+  for(const [side,content] of [['base',baseSource],['left',leftSource],['right',rightSource]]){
+    await activeView().locator('[data-merge-source="'+side+'"]').fill(content)
+  }
+  await activeView().getByRole('button',{name:'Generate merge',exact:true}).click()
+  await activeView().locator('.merge-workspace').getByText('Unresolved conflicts: 1 / 1',{exact:true}).waitFor()
+  assert.equal(await activeView().getByRole('button',{name:'Save file',exact:true}).isDisabled(),true)
+  await screenshot('09-three-way-conflict')
+  await activeView().getByRole('button',{name:'Use left',exact:true}).click()
+  const mergeResult=activeView().getByLabel('Merge result',{exact:true})
+  await mergeResult.waitFor()
+  assert.equal(await mergeResult.inputValue(),'header\nL\nmid\nEND\n')
+  await activeView().getByRole('button',{name:'Reset resolution',exact:true}).click()
+  assert.equal(await activeView().getByRole('button',{name:'Save file',exact:true}).isDisabled(),true)
+  await activeView().getByRole('button',{name:'Manual resolution',exact:true}).click()
+  await activeView().getByLabel('Manual resolution',{exact:true}).fill('custom\n')
+  await activeView().getByRole('button',{name:'Apply resolution',exact:true}).click()
+  await mergeResult.waitFor()
+  assert.equal(await mergeResult.inputValue(),'header\ncustom\nmid\nEND\n')
+  await mergeResult.fill('header\ncustom\nmid\nEND\nmanual tail\n')
+  await waitState(w=>w?.sessions.find(s=>s.id===w.activeId)?.merge?.output?.content==='header\ncustom\nmid\nEND\nmanual tail\n','merge result persisted')
+  await page.reload({waitUntil:'networkidle'})
+  await activeView().locator('.merge-workspace').waitFor()
+  await activeView().getByLabel('Merge result',{exact:true}).waitFor()
+  assert.equal(await activeView().getByLabel('Merge result',{exact:true}).inputValue(),'header\ncustom\nmid\nEND\nmanual tail\n')
+  assert.equal(await activeView().locator('[data-merge-source="base"]').inputValue(),baseSource)
+  assert.equal(await activeView().locator('[data-merge-source="left"]').inputValue(),leftSource)
+  assert.equal(await activeView().locator('[data-merge-source="right"]').inputValue(),rightSource)
+  const mergedDownload=page.waitForEvent('download')
+  await activeView().getByRole('button',{name:'Save file',exact:true}).click()
+  const outputDownload=await mergedDownload
+  assert.equal(outputDownload.suggestedFilename(),'merged.txt')
+  assert.equal(await readFile(await outputDownload.path(),'utf8'),'header\ncustom\nmid\nEND\nmanual tail\n')
+  await screenshot('10-three-way-result')
+  await activeView().locator('[data-merge-source="left"]').fill('changed after merge\n')
+  await activeView().getByText('The previous result is retained until you regenerate.',{exact:true}).waitFor()
+  assert.equal(await activeView().getByRole('button',{name:'Save file',exact:true}).isDisabled(),true)
+  checks.push('Three-way workspace handles independent edits, explicit conflicts, reset/manual choices, persisted editable result, safe export and stale input invalidation.')
+
+  // Archive decoding uses native Rust, so browser preview must never fake an
+  // archive result. Native archive tests exercise actual ZIP/TAR/GZIP/7Z.
+  await page.locator('.sidebar').getByRole('button',{name:'Archive compare',exact:true}).click()
+  await activeView().locator('.archive-workspace').waitFor()
+  await activeView().getByText('Archive comparison requires the desktop app.',{exact:true}).waitFor()
+  assert.equal(await activeView().getByRole('button',{name:'Compare archives',exact:true}).isDisabled(),true)
+  await screenshot('11-archive-preview')
+  checks.push('Archive workspace declares the native-only boundary and refuses unsupported browser comparison.')
+
   assert.deepEqual(errors, [], 'No uncaught browser errors are permitted.')
   await writeFile(resolve(artifacts, 'report.json'), JSON.stringify({ ok: true, checks, errors }, null, 2))
   console.log(checks.map(check => `PASS ${check}`).join('\n'))

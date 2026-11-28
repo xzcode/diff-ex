@@ -10,7 +10,7 @@
 
 **Diff EX is an offline desktop comparison and merge tool for Windows, macOS and Linux.** It combines an editable two-pane workspace with an independent Rust comparison engine. No account, server, telemetry or file upload is needed.
 
-> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M5 feature set are implemented, including read-only binary, image and table comparison. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
+> **Status: initial development baseline, v0.1.0.** The M0 foundation and the first working M1–M7 feature set are implemented, including read-only binary, image, table and archive comparison and three-way text merge. This is not a claim that every item in the long-term Beyond Compare replacement plan is complete. See the [roadmap](docs/ROADMAP.md) and [handoff](docs/HANDOFF_2026-11-27.md) for precise status and verification evidence.
 
 ## What works
 
@@ -42,6 +42,13 @@ Choose **Settings → Appearance** for Pure black, Graphite (gray), White, Soft 
 | Tables | CSV/TSV with encoding and delimiter options; native XLS/XLSX/XLSM/XLSB/ODS worksheet reader; column-name and primary-key alignment, cell details and paging |
 
 These three workspaces are read-only. Binary comparison does not infer edit alignment; image comparison uses decoded first-frame pixels rather than metadata or animations; spreadsheet comparison uses loaded cell values, not formatting, macros or recalculated formulas. Excel/OpenDocument reading requires the desktop app. Browser sessions restore file references, not file handles. No source data is copied into workspace snapshots for these modules.
+
+## Three-way merge and archives
+
+- Three-way text merge: load or paste a common base, left and right; automatically combine independent or identical line edits, resolve conflicts using base/left/right or manual content, edit and save a separate result file. Source changes invalidate the result. Conflicts must be resolved before export. Source files and same-file aliases are rejected as native save targets.
+- Archive comparison: ZIP (including JAR/APK/WAR), 7z, TAR, TAR.GZ/TGZ and GZIP. Compare decompressed BLAKE3 content fingerprints and virtual relative paths across container formats without extracting or executing files. Includes filtering, pagination, per-entry detail and cancellation. Encrypted/password-protected archives and unsupported compression methods report errors. A plain GZIP stream is compared as a single virtual payload. Browser preview requires the desktop engine for archive comparison.
+
+Three-way merge is line-based and uses a conservative overlap policy. Directory three-way merge, byte edits, archive member extraction/repacking and password entry are not implemented.
 
 ## Screenshots
 

@@ -16,7 +16,7 @@ const doc=(side:Source):TextDocument=>side==='base'?draft.value.base:props.sessi
 const title=(side:Source)=>t(({base:'Base version',left:'LEFT',right:'RIGHT'})[side])
 const localError=ref('')
 const plan=ref<MergeSegment[]>([])
-watch([()=>draft.value.prepared,()=>draft.value.base.content,()=>props.session.left.content,()=>props.session.right.content],([prepared,base,left,right])=>{try{plan.value=prepared?planThreeWay(base,left,right):[]}catch(e){plan.value=[];localError.value=String(e)}})
+watch([()=>draft.value.prepared,()=>draft.value.base.content,()=>props.session.left.content,()=>props.session.right.content],([prepared,base,left,right])=>{localError.value='';try{plan.value=prepared?planThreeWay(base,left,right):[]}catch(e){plan.value=[];localError.value=String(e)}})
 const conflicts=computed(()=>plan.value.filter(s=>s.kind==='conflict'))
 const autoCount=computed(()=>plan.value.filter(s=>s.kind!=='same'&&s.kind!=='conflict').length)
 const unresolved=computed(()=>conflicts.value.filter(s=>!Object.hasOwn(draft.value.resolutions,s.id)).length)

@@ -89,5 +89,6 @@ export function mergeText(segments: MergeSegment[], resolutions: Record<string,M
   return chunks.join('')
 }
 export function mergeReady(draft: MergeDraft | undefined, left: string, right: string): boolean {
-  return !!draft?.prepared && mergeText(planThreeWay(draft.base.content,left,right),draft.resolutions) !== null
+  try { return !!draft?.prepared && mergeText(planThreeWay(draft.base.content,left,right),draft.resolutions) !== null }
+  catch { return false }
 }

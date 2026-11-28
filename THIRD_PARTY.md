@@ -23,3 +23,8 @@ Vite, TypeScript, vue-tsc, Vitest and Playwright are development/build/verificat
 ## Spreadsheet reader
 
 - Calamine 0.38.0 (`calamine`, MIT): native read-only Excel and OpenDocument workbook parsing. Dependency versions and transitive packages are recorded in Cargo.lock. Spreadsheet macros are not executed.
+
+## Archive comparison
+
+- zip 9.8.x, tar 0.4.x, flate2 1.x and sevenz-rust2 0.27.x: read archive streams; the exact resolved dependencies are recorded in Cargo.lock. Sevenz compression is enabled only for tests; production does not extract or rewrite archive members. See each crate's license metadata.
+- same-file 1.x: cross-platform file identity checks for three-way result save targets.
