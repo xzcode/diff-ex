@@ -57,7 +57,7 @@ export async function browserDocument(file: File, encoding?: string): Promise<Te
   const normalized = detected.toLowerCase().replace(/-/g, '')
   if ((utf8Bom && normalized !== 'utf8') || (le && normalized !== 'utf16le') || (be && normalized !== 'utf16be')) throw new Error('Selected encoding conflicts with the file BOM. Open with automatic detection or the matching encoding.')
   const content = new TextDecoder(detected, { fatal: true }).decode(bytes)
-  if (content.includes('\0')) throw new Error('The file contains NUL characters and may be binary. Binary comparison is planned for a later release.')
+  if (content.includes('\0')) throw new Error('The file contains NUL characters and may be binary. Open it in Binary compare instead.')
   const endings = new Set((content.match(/\r\n|\r|\n/g) || []).map(v => v === '\r\n' ? 'crlf' : v === '\r' ? 'cr' : 'lf'))
   return { path: null, name: file.name, content, encoding: detected, bom: utf8Bom || le || be,
     lineEnding: endings.size > 1 ? 'mixed' : (Array.from(endings)[0] as TextDocument['lineEnding']) || 'none',

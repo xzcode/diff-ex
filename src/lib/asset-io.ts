@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { isDesktop } from './bridge'
-import type { AssetRef, BinaryStats, Side, TableSheet } from '../contracts'
+import type { ArchiveResult, AssetRef, BinaryStats, Side, TableSheet } from '../contracts'
 
 export const ASSET_CHUNK=1024*1024
 export interface AssetReader {
@@ -68,3 +68,5 @@ export const assetSides:Side[]=['left','right']
 export function displaySize(size:number):string{
   return size<1024?size+' B':size<1048576?(size/1024).toFixed(1)+' KiB':size<1073741824?(size/1048576).toFixed(1)+' MiB':(size/1073741824).toFixed(2)+' GiB'
 }
+
+export const compareArchives=(left:AssetRef,right:AssetRef,jobId:string)=>invoke<ArchiveResult>('compare_archive_assets',{left,right,jobId})

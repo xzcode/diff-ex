@@ -9,6 +9,7 @@ import {defaultAssetSettings} from '../lib/workspace'
 import BinaryCompare from './BinaryCompare.vue'
 import ImageCompare from './ImageCompare.vue'
 import TableCompare from './TableCompare.vue'
+import ArchiveCompare from './ArchiveCompare.vue'
 
 const props=defineProps<{session:CompareSession;language:Language}>()
 const emit=defineEmits<{'update-source':[side:Side,value:AssetRef|null];'update-settings':[patch:Partial<AssetSettings>]}>()
@@ -22,7 +23,7 @@ const right=computed(()=>makeReader(props.session.assetSources?.right??null,brow
 const settings=computed(()=>({...defaultAssetSettings(),...props.session.assetSettings}))
 const readerFor=(side:Side)=>side==='left'?left.value:right.value
 const sourceFor=(side:Side)=>props.session.assetSources?.[side]??null
-const accept=computed(()=>props.session.kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.ico':props.session.kind==='table'?'.csv,.tsv,.tab,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods':'*')
+const accept=computed(()=>props.session.kind==='image'?'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif,.ico':props.session.kind==='archive'?'.zip,.jar,.apk,.war,.tar,.tar.gz,.tgz,.gz':props.session.kind==='table'?'.csv,.tsv,.tab,.txt,.xlsx,.xls,.xlsm,.xlsb,.ods':'*')
 function register(side:Side,value:unknown){if(value instanceof HTMLInputElement)inputs[side]=value}
 function setSource(side:Side,value:AssetRef|null){
   emit('update-source',side,value)
@@ -66,6 +67,7 @@ onBeforeUnmount(()=>{alive=false;browserFiles.value={}})
     <div v-if="sourceError" class="error-banner" role="alert"><span>{{ sourceError }}</span><button @click="sourceError=''"><X :size="15"/></button></div>
     <BinaryCompare v-if="session.kind==='binary'" :left="left" :right="right" :language="language" :settings="settings" @update-settings="emit('update-settings',$event)"/>
     <ImageCompare v-else-if="session.kind==='image'" :left="left" :right="right" :language="language" :settings="settings" @update-settings="emit('update-settings',$event)"/>
+    <ArchiveCompare v-else-if="session.kind==='archive'" :left="left" :right="right" :language="language"/>
     <TableCompare v-else :left="left" :right="right" :language="language" :settings="settings" @update-settings="emit('update-settings',$event)"/>
   </div>
 </template>
