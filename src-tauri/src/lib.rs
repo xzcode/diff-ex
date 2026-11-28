@@ -1,4 +1,4 @@
-use diff_ex_core::{assets, directories, files, structured, sync, text, workbooks};
+use diff_ex_core::{archives, assets, directories, files, structured, sync, text, workbooks};
 use std::{
     collections::HashMap,
     fs,
@@ -33,6 +33,23 @@ impl AppState {
     }
 }
 
+#[tauri::command]
+async fn compare_archive_assets(
+    state: State<'_, AppState>,
+    left: assets::AssetRef,
+    right: assets::AssetRef,
+    job_id: String,
+) -> Result<archives::ArchiveResult, String> {
+    let cancel = state.start(&job_id)?;
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        archives::compare_archives(&left, &right, &cancel)
+    })
+    .await
+    .map_err(|e| e.to_string())
+    .and_then(|r| r);
+    state.finish(&job_id);
+    result
+}
 #[tauri::command]
 async fn inspect_asset(path: String) -> Result<assets::AssetRef, String> {
     tauri::async_runtime::spawn_blocking(move || assets::inspect_asset(&path))
@@ -293,6 +310,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
+            compare_archive_assets,
             inspect_asset,
             read_asset_chunk,
             compare_binary_assets,

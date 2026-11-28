@@ -1,4 +1,5 @@
 //! Pure Rust comparison and local filesystem operations. No UI/runtime dependencies.
+pub mod archives;
 pub mod assets;
 pub mod directories;
 pub mod files;
