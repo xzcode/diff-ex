@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { AssetRef,DocUnit,DocumentData,GitResult,GitSelection,RemoteRequest,RemoteResult,SshProfile,TextDocument } from '../contracts'
+import type { AssetRef,DocumentData,GitResult,GitSelection,RemoteRequest,RemoteResult,SshProfile,TextDocument } from '../contracts'
 
 export async function browsePath(directory:boolean):Promise<string|null>{
   const path=await open({directory,multiple:false})
